@@ -1,0 +1,3 @@
+[submodule "t5x"]
+	path = t5x
+	url = https://github.com/google-research/t5x.git
