@@ -3,11 +3,11 @@
     ALPHA="0.5"
     SEED="3697"
 
-    language_files=($(du -a $DATA_DIR | grep txt | grep -Ev 'ful|lin|eng|fra|arz' | cut -f 2))
-    language_files+=($(du -a $DATA_DIR | grep -E 'arz|eng|fra' | grep '1p5' | cut -f 2))
+    language_files=($(du -a $DATA_DIR | grep txt | grep -Ev 'ful|lin|eng|fra' | cut -f 2))
+    language_files+=($(du -a $DATA_DIR | grep -E 'eng|fra' | grep '1p5' | cut -f 2))
 
     number_of_sentences=()
-
+    
     for file in ${language_files[@]}
     do
         number_of_sentences+=($(cat $file | wc -l))

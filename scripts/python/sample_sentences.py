@@ -11,7 +11,6 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 
-get_lang = lambda file: Path(file)
 def setup_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Sample Sentences from monolingual corpora to train tokenizer")
     parser.add_argument(
