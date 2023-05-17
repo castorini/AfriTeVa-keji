@@ -92,6 +92,11 @@ def main():
 
     with open(args.output_file, "w") as outfile:
         for file, n_sentences_to_sample in tqdm(n_sampled_sentences.items()):
+            if n_sentences_to_sample // 10000 < 10:
+                if n_sentences_to_sample // 10000 < 1:
+                    n_sentences_to_sample *= 10
+                else:
+                    n_sentences_to_sample *= 5
             print(f"Number of sampled sentences for {file} = {n_sentences_to_sample}")
             lang_file = open(file, "r")
             sample_sentences(n_sentences_to_sample, n_sentences_map[file], lang_file, outfile)
