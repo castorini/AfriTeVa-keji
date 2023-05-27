@@ -8,12 +8,13 @@ from dotenv import load_dotenv
 from t5.data.preprocessors import span_corruption
 from t5.data.utils import rate_num_examples
 
+from teva.utils import get_dataset_statistics, line_to_dict
 from teva.vocab import DEFAULT_VOCAB
-from teva.utils import line_to_dict
 
 load_dotenv()
 
 BUCKET_DIR=os.getenv("DATA_GCP_BUCKET_DIR")
+STATISTICS_PATH = Template(BUCKET_DIR + "${corpus}Passages/stats")
 DATASET_PATH = Template(BUCKET_DIR + "${corpus}Passages/${split}/${language}.txt")
 
 DEFAULT_TEMPERATURE: Final = 1.0  # TODO: @theyorubayesian @ToluClassics
@@ -27,8 +28,8 @@ DEFAULT_OUTPUT_FEATURES: Final = {
 }
 
 LANGS: Final = [ 
-    "afr", "amh", "arz", "eng", 
-    "fra", "hau", "ibo", "kin", 
+    "afr", "amh", "arz", "eng_1p5", 
+    "fra_1p5", "hau", "ibo", "kin", 
     "mlg", "nya", "orm", "por",
     "sna", "som", "sot", "swa",
     "tir", "xho", "yor", "zul"
@@ -37,9 +38,16 @@ LANGS: Final = [
 CORPORA: Final = ["wiki", "news"] 
 lm_tasks = []
 
+dataset_statistics = get_dataset_statistics()
+
 for corpus in CORPORA:
     corpus_tasks = []
     for lang in LANGS:
+        if corpus == "news" and lang in ["xho", "arz", "nya"]:
+            continue
+
+        dataset_statistics = get_dataset_statistics(STATISTICS_PATH.substitute(corpus=corpus))
+
         lang_config_name = f"{lang}_{corpus}"
         seqio.TaskRegistry.add(
             lang_config_name,
@@ -55,12 +63,12 @@ for corpus in CORPORA:
                         split="eval", 
                         language=lang
                     )
-                }
+                },
+                num_input_examples=dataset_statistics[lang]
             ),
             preprocessors=[
                 line_to_dict,
                 seqio.preprocessors.tokenize,
-                seqio.CacheDatasetPlaceholder(),    # TODO: @theyorubayesian @ToluClassics
                 span_corruption,
                 seqio.preprocessors.append_eos_after_trim
             ],
@@ -73,6 +81,6 @@ for corpus in CORPORA:
     seqio.MixtureRegistry.add(corpus, corpus_tasks, default_rate=DEFAULT_MIX_RATE)
     lm_tasks += corpus_tasks
 
-seqio.MixtureRegistry.add("_".join(CORPORA), lm_tasks, default_rate=DEFAULT_MIX_RATE)
+seqio.MixtureRegistry.add("news_and_wiki", lm_tasks, default_rate=DEFAULT_MIX_RATE)
 
 # TODO: Finetune & Evaluate tasks

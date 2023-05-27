@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=64.0.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "AfriTeVa"
+description = "LLMs for African Languages"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.8"
+
+dependencies = [
+  'wandb==0.14.0',
+  'nltk==3.8.1',
+  'jsonlines==3.1.0',
+  'python_dotenv==1.0.0',
+  'azure-storage-blob==12.15.0'
+]
+
+dynamic = [
+  "version",
+]
+classifiers = [
+    'Development Status :: 3 - Alpha',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Information Technology',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: Apache Software License',
+    'Programming Language :: Python',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+]
+license = { text = "Apache-2.0" }
+
+[project.optional-dependencies]
+dev = [
+  'ipykernel',
+]
+
+[project.urls]
+Homepage = "https://github.com/castorini/afribertav2"
+
+[project.scripts]
+teva = "teva.cli:main"
