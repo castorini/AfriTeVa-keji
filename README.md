@@ -14,7 +14,7 @@ conda create -n teva python=3.8
 * Basic development installation command
 
 ```bash
-pip install -e ".[tpu] -f https://storage.googleapis.com/jax-releases/libtpu_releases.html"    # For TPU
+pip install -e ".[tpu]" -f https://storage.googleapis.com/jax-releases/libtpu_releases.html    # For TPU
 pip install -e ".[gpu]" -f https://storage.googleapis.com/jax-releases/libtpu_releases.html      # For GPU
 ```
 
