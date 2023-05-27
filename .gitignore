@@ -1,5 +1,10 @@
+.env
 data/
 notebooks/
 logs/
 runs/
 tokenizers/
+cmake*/
+cmake-*/
+*.egg-info/
+.vscode/

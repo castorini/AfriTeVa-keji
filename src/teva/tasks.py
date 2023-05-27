@@ -1,0 +1,86 @@
+import os
+from functools import partial
+from string import Template
+from typing import Final
+
+import seqio
+from dotenv import load_dotenv
+from t5.data.preprocessors import span_corruption
+from t5.data.utils import rate_num_examples
+
+from teva.utils import get_dataset_statistics, line_to_dict
+from teva.vocab import DEFAULT_VOCAB
+
+load_dotenv()
+
+BUCKET_DIR=os.getenv("DATA_GCP_BUCKET_DIR")
+STATISTICS_PATH = Template(BUCKET_DIR + "${corpus}Passages/stats")
+DATASET_PATH = Template(BUCKET_DIR + "${corpus}Passages/${split}/${language}.txt")
+
+DEFAULT_TEMPERATURE: Final = 1.0  # TODO: @theyorubayesian @ToluClassics
+DEFAULT_MIX_RATE = partial(
+    rate_num_examples, temperature=DEFAULT_TEMPERATURE
+)
+
+DEFAULT_OUTPUT_FEATURES: Final = {
+    "inputs": seqio.Feature(vocabulary=DEFAULT_VOCAB, add_eos=True, required=False),
+    "targets": seqio.Feature(vocabulary=DEFAULT_VOCAB, add_eos=True)
+}
+
+LANGS: Final = [ 
+    "afr", "amh", "arz", "eng_1p5", 
+    "fra_1p5", "hau", "ibo", "kin", 
+    "mlg", "nya", "orm", "por",
+    "sna", "som", "sot", "swa",
+    "tir", "xho", "yor", "zul"
+]
+
+CORPORA: Final = ["wiki", "news"] 
+lm_tasks = []
+
+dataset_statistics = get_dataset_statistics()
+
+for corpus in CORPORA:
+    corpus_tasks = []
+    for lang in LANGS:
+        if corpus == "news" and lang in ["xho", "arz", "nya"]:
+            continue
+
+        dataset_statistics = get_dataset_statistics(STATISTICS_PATH.substitute(corpus=corpus))
+
+        lang_config_name = f"{lang}_{corpus}"
+        seqio.TaskRegistry.add(
+            lang_config_name,
+            source=seqio.TextLineDataSource(
+                split_to_filepattern={
+                    "train": DATASET_PATH.substitute(
+                        corpus=corpus.capitalize(),
+                        split="train",
+                        language=lang
+                    ),
+                    "validation": DATASET_PATH.substitute(
+                        corpus=corpus.capitalize(), 
+                        split="eval", 
+                        language=lang
+                    )
+                },
+                num_input_examples=dataset_statistics[lang]
+            ),
+            preprocessors=[
+                line_to_dict,
+                seqio.preprocessors.tokenize,
+                span_corruption,
+                seqio.preprocessors.append_eos_after_trim
+            ],
+            output_features=DEFAULT_OUTPUT_FEATURES,
+            metric_fns=[]
+        )
+
+        corpus_tasks.append(lang_config_name)
+    
+    seqio.MixtureRegistry.add(corpus, corpus_tasks, default_rate=DEFAULT_MIX_RATE)
+    lm_tasks += corpus_tasks
+
+seqio.MixtureRegistry.add("news_and_wiki", lm_tasks, default_rate=DEFAULT_MIX_RATE)
+
+# TODO: Finetune & Evaluate tasks
