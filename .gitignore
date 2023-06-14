@@ -8,3 +8,4 @@ cmake*/
 cmake-*/
 *.egg-info/
 .vscode/
+__pycache__/

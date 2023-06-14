@@ -1,0 +1,12 @@
+include 't5x/examples/t5/t5_1_1/base.gin'
+VOCABULARY = @seqio.SentencePieceVocabulary()
+seqio.SentencePieceVocabulary.sentencepiece_model_file = "gs://afriqa-bucket/tokenizers/v150000/sentencepiece.bpe.model"
+
+models.EncoderDecoderModel:
+  module = @network.Transformer()
+  input_vocabulary = %VOCABULARY
+  output_vocabulary = %VOCABULARY
+
+network.Transformer.config = @network.T5Config()
+network.T5Config:
+  vocab_size = 150144  # vocab size rounded to a multiple of 128 for TPU efficiency

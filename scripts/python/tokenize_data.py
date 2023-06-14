@@ -13,6 +13,7 @@ import pandas as pd
 import transformers
 from nltk import download
 from nltk.tokenize import sent_tokenize
+from numpy import isnan
 from transformers import PreTrainedTokenizer
 
 MAX_LENGTH = 512
@@ -79,10 +80,12 @@ def get_iterator(filename: str) -> Generator[str, None, None]:
         raise ValueError("Only `.jsonl`, `csv` and `.tsv` are handled")
     
     for _, line in f.iterrows():
-        if line["headline"] == line["content"]:     # Empty Wikipedia articles
+        if line["headline"] == line["content"]:             # Empty Wikipedia articles
             yield line["headline"]
-        if line["headline"] and line["content"]:
-            if line["content"].startswith(line["headline"]):
+        elif isnan(line["headline"]):                       # Headline may be null
+             yield line["content"]
+        elif line["headline"] and line["content"]:
+            if line["content"].startswith(line["headline"]):    # Content may start with headline 
                 yield line["content"]
             else:
                 yield " ".join([line["headline"], line["content"]])
