@@ -108,7 +108,7 @@ masakhanews_dataset_statistics = get_dataset_statistics(f"{BUCKET_DIR}masakhanew
 masakhanews_dataset_statistics = {
     language: {
         split: masakhanews_dataset_statistics[split][language]
-        for split in ["train", "dev", "test"]
+        for split in ["train", "validation", "test"]
     } for language in MASAKHANEWS_LANGUAGES
 }
 

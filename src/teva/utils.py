@@ -5,18 +5,21 @@ import tensorflow as tf
 Language = NewType('Language', str)
 
 
-class DatasetStatistics(TypedDict, total=False):
+class SplitStatistics(TypedDict, total=False):
+    train: int
     test: int
     validation: int
 
-class CorpusStatistics(TypedDict):
-    language: DatasetStatistics
+class CorpusStatisticsByLanguage(TypedDict):
+    language: SplitStatistics
 
 
-class SplitStatistics(TypedDict, total=False):
+class CorpusStatisticsBySplit(TypedDict):
     train: Dict[Language, int]
     test: Dict[Language, int]
     validation: Dict[Language, int]
+
+CorpusStatistics = Union[CorpusStatisticsByLanguage, CorpusStatisticsBySplit]
 
 
 def get_labels(labels_file: str) -> List[str]:
@@ -24,7 +27,7 @@ def get_labels(labels_file: str) -> List[str]:
         return f.read().splitlines()
 
 
-def get_dataset_statistics(file: str) -> Union[CorpusStatistics, SplitStatistics]:
+def get_dataset_statistics(file: str) -> CorpusStatistics:
     stats = {}
 
     with tf.io.gfile.GFile(file) as f:
