@@ -1,12 +1,8 @@
 include 't5x/configs/runs/eval.gin'
-include 'config/models/tpu/t5_1_1/large.gin'
 
 import teva.tasks
 
 DROPOUT_RATE = 0.0  # unused but needs to be specified
-MIXTURE_OR_TASK_NAME = "masakhanews"
-TASK_FEATURE_LENGTHS = {"inputs": 512, "targets": 2}
-CHECKPOINT_PATH = "/home/aooladip/projects/AfriTeVa-keji/runs/T5_1_1_large_ckpt_200k_masakhanews/checkpoint_209000"
 
 utils.DatasetConfig:
   split = "test"
