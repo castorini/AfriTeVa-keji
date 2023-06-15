@@ -6,11 +6,7 @@ Language = NewType('Language', str)
 
 
 class DatasetStatistics(TypedDict, total=False):
-    dev: int
-    eval: int
-    train: int
     test: int
-    val: int
     validation: int
 
 class CorpusStatistics(TypedDict):
@@ -18,12 +14,8 @@ class CorpusStatistics(TypedDict):
 
 
 class SplitStatistics(TypedDict, total=False):
-    dev: Dict[Language, int]
-    dev: Dict[Language, int]
-    eval: Dict[Language, int]
     train: Dict[Language, int]
     test: Dict[Language, int]
-    val: Dict[Language, int]
     validation: Dict[Language, int]
 
 
@@ -41,6 +33,9 @@ def get_dataset_statistics(file: str) -> Union[CorpusStatistics, SplitStatistics
             split, file = language_and_split.split("/")
             language = file.split(".")[0]
 
+            if language in ["dev", "eval", "val", "validation"]:
+                language = "validation"
+            
             if split in ["dev", "eval", "val", "validation"]:
                 split = "validation"
             

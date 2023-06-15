@@ -177,7 +177,7 @@ lafand_dataset_statistics = get_dataset_statistics(f"{BUCKET_DIR}lafand/stats")
 lafand_dataset_statistics = {
     language: {
         split: lafand_dataset_statistics[split][language]
-        for split in ["train", "dev", "test"]
+        for split in ["train", "validation", "test"]
         if language in lafand_dataset_statistics[split]     # Some languages do not have train
     } for language in LAFAND_LANGUAGES
 }
