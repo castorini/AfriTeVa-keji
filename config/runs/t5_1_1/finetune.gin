@@ -1,5 +1,5 @@
 include 't5x/configs/runs/finetune.gin'
-include 'config/models/tpu/t5_1_1/large.gin'
+# include 'config/models/tpu/t5_1_1/large.gin'
 # include 'config/models/tpu/t5_1_1/base.gin'
 
 import teva.tasks
@@ -11,19 +11,16 @@ DROPOUT_RATE = 0.1
 EVAL_STEPS = 20         # TODO: @theyorubayesian
 EVAL_PERIOD = 1000
 
-TRAIN_STEPS = 210000  # 524288 pre-trained steps + 5000 fine-tuning steps.
+TRAIN_STEPS = 529288  # 524288 pre-trained steps + 5000 fine-tuning steps.
 USE_CACHED_TASKS = False
 
-INITIAL_CHECKPOINT_PATH = "gs://awarawa/T5_1_1_large/checkpoint_200000"
+INITIAL_CHECKPOINT_PATH = "gs://awarawa/T5_1_1_base/checkpoint_524288"
 
 # `LOSS_NORMALIZING_FACTOR`: When fine-tuning a model that was pre-trained
 # using Mesh Tensorflow (e.g. the public T5 / mT5 / ByT5 models), this should be
 # set to `pretraining batch_size` * `target_token_length`. For T5 and T5.1.1:
 # `2048 * 114`. For mT5: `1024 * 229`. For ByT5: `1024 * 189`.
 # LOSS_NORMALIZING_FACTOR = 233472
-train.infer_eval_dataset_cfg = None
-
-# infer_eval/utils.DatasetConfig: None
 
 utils.SaveCheckpointConfig:
   period = 1000

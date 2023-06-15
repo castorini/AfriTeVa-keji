@@ -6,24 +6,18 @@ from typing import Final
 import seqio
 import tensorflow as tf
 from dotenv import load_dotenv
-from t5.data.preprocessors import parse_tsv, span_corruption, summarize
+from t5.data.preprocessors import span_corruption, summarize
 from t5.data.utils import rate_num_examples
 from t5.evaluation.metrics import accuracy, bleu 
 
-from teva.utils import (
-    create_news_classification_example,
-    get_dataset_statistics,
-    get_labels,
-    jsonline_to_dict,
-    line_to_dict, 
-    translate,
-    weighted_multiclass_f1
-)
+from teva.metrics import chrf, weighted_multiclass_f1
+from teva.preprocessors import create_news_classification_example, jsonline_to_dict, line_to_dict, translate
+from teva.utils import get_dataset_statistics, get_labels
 from teva.vocab import DEFAULT_VOCAB
 
 load_dotenv()
 
-BUCKET_DIR=os.getenv("DATA_GCP_BUCKET_DIR")
+BUCKET_DIR=os.getenv("DATA_GCP_BUCKET_DIR", "data/")
 STATISTICS_PATH = Template(BUCKET_DIR + "AwarawaV2${corpus}Passages/stats")
 DATASET_PATH = Template(BUCKET_DIR + "AwarawaV2${corpus}Passages/${split}/${language}.txt")
 
@@ -109,6 +103,8 @@ MASAKHANEWS_LANGUAGES: Final = [
     "swa", "tir", "xho", "yor"
 ]
 masakhanews_dataset_statistics = get_dataset_statistics(f"{BUCKET_DIR}masakhanews/stats")
+# TODO: @theyorubayesian
+# This is a conversion from SplitStatistics to CorpusStatistics. Formalize it as a method.
 masakhanews_dataset_statistics = {
     language: {
         split: masakhanews_dataset_statistics[split][language]
@@ -165,43 +161,55 @@ seqio.MixtureRegistry.add("masakhanews", masakhanews_tasks, default_rate=DEFAULT
 # -----------
 # Translation
 # -----------
-LAFAND_DATASET_PATH = Template(BUCKET_DIR + "lafand/{pivot_language}-${language}/${split}.jsonl")
+LAFAND_DATASET_PATH = Template(BUCKET_DIR + "lafand/${pivot}-${language}/${split}.jsonl")
 
 LAFAND_FR_PIVOT_LANGUAGES = []
 LAFAND_EN_PIVOT_LANGUAGES = [
-    "hau", "kin", "amh", "pcm", "swa", "ibo", "yor", "zul"
+    "hau", "pcm", "swa", "ibo", "yor", "zul"
 ]
 LAFAND_LANGUAGES = [*LAFAND_EN_PIVOT_LANGUAGES, *LAFAND_FR_PIVOT_LANGUAGES]
+lafand_dataset_statistics = get_dataset_statistics(f"{BUCKET_DIR}lafand/stats")
+lafand_dataset_statistics = {
+    language: {
+        split: lafand_dataset_statistics[split][language]
+        for split in ["train", "dev", "test"]
+        if language in lafand_dataset_statistics[split]     # Some languages do not have train
+    } for language in LAFAND_LANGUAGES
+}
 
 lafand_tasks = []
 
-for language in LAFAND_FR_PIVOT_LANGUAGES:
+for language in LAFAND_LANGUAGES:
     pivot = "en" if language in LAFAND_EN_PIVOT_LANGUAGES else "fr"
-    task_name = f"{pivot}_{language}_lafand-mt"
+    task_name = f"{pivot}_{language}_lafand_mt"
 
     JSONLINE_SPECS = {"translation": {
         language: tf.TensorSpec(tf.TensorShape([]), tf.string, name=language)
-        for language in ["en", language]
+        for language in [pivot, language]
     }}
+    parse_jsonline = partial(jsonline_to_dict, specs=JSONLINE_SPECS, return_key="translation")
 
     seqio.TaskRegistry.add(
         name=task_name,
         source=seqio.TextLineDataSource(
             split_to_filepattern={
                     "train": LAFAND_DATASET_PATH.substitute(
+                        pivot=pivot,
                         split="train",
                         language=language
                     ),
                     "validation": LAFAND_DATASET_PATH.substitute(
+                        pivot=pivot,
                         split="dev",
                         language=language
                     ),
                     "test": LAFAND_DATASET_PATH.substitute(
+                        pivot=pivot,
                         split="test",
                         language=language
                     )
                 },
-            # num_input_examples=dataset_statistics[language] # TODO: @theyorubayesian
+            num_input_examples=lafand_dataset_statistics[language]
         ),
         preprocessors=[
             parse_jsonline,
@@ -210,12 +218,11 @@ for language in LAFAND_FR_PIVOT_LANGUAGES:
             seqio.preprocessors.append_eos_after_trim
         ],
         output_features=DEFAULT_OUTPUT_FEATURES,
-        metric_fns=[accuracy, weighted_f1]  # TODO: @theyorubayesian
+        metric_fns=[accuracy, weighted_f1]
     )
     lafand_tasks.append(lang_config_name)
 
-# seqio.MixtureRegistry.add("lafand-mt", lafand_tasks, default_rate=DEFAULT_MIX_RATE)
-
+seqio.MixtureRegistry.add("lafand_mt", lafand_tasks, default_rate=DEFAULT_MIX_RATE)
 
 # -------------------
 # XLSUM Summarization
