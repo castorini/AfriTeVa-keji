@@ -161,7 +161,7 @@ seqio.MixtureRegistry.add("masakhanews", masakhanews_tasks, default_rate=DEFAULT
 # -----------
 # Translation
 # -----------
-LAFAND_DATASET_PATH = Template(BUCKET_DIR + "lafand/${pivot}-${language}/${split}.jsonl")
+LAFAND_DATASET_PATH = Template(BUCKET_DIR + "lafand/${pivot}-${language}/${split}.json")
 EN_XX_TRANSLATION = os.getenv("LAFAND_TRANSLATION_DIRECTION", "en-xx") in ["en-xx", "fr-exx"]
 LAFAND_FR_PIVOT_LANGUAGES = []
 LAFAND_EN_PIVOT_LANGUAGES = [
