@@ -228,9 +228,9 @@ for language in LAFAND_LANGUAGES:
             seqio.preprocessors.append_eos_after_trim
         ],
         output_features=DEFAULT_OUTPUT_FEATURES,
-        metric_fns=[accuracy, weighted_f1]
+        metric_fns=[bleu, chrf]
     )
-    lafand_tasks.append(lang_config_name)
+    lafand_tasks.append(task_name)
 
 seqio.MixtureRegistry.add("lafand_mt", lafand_tasks, default_rate=DEFAULT_MIX_RATE)
 
