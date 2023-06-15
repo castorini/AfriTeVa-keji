@@ -1,6 +1,4 @@
 include 't5x/configs/runs/finetune.gin'
-# include 'config/models/tpu/t5_1_1/large.gin'
-# include 'config/models/tpu/t5_1_1/base.gin'
 
 import teva.tasks
 

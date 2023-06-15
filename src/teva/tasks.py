@@ -162,11 +162,16 @@ seqio.MixtureRegistry.add("masakhanews", masakhanews_tasks, default_rate=DEFAULT
 # Translation
 # -----------
 LAFAND_DATASET_PATH = Template(BUCKET_DIR + "lafand/${pivot}-${language}/${split}.jsonl")
-
+EN_XX_TRANSLATION = os.getenv("LAFAND_TRANSLATION_DIRECTION", "en-xx") in ["en-xx", "fr-exx"]
 LAFAND_FR_PIVOT_LANGUAGES = []
 LAFAND_EN_PIVOT_LANGUAGES = [
     "hau", "pcm", "swa", "ibo", "yor", "zul"
 ]
+LANGUAGE_CODE_MAP = {
+    "hau": "Hausa", "pcm": "Pidgin", "swa": "Swahili", 
+    "ibo": "Igbo", "yor": "Yoruba", "zul": "Zulu", 
+    "en": "English", "fr": "French"
+}
 LAFAND_LANGUAGES = [*LAFAND_EN_PIVOT_LANGUAGES, *LAFAND_FR_PIVOT_LANGUAGES]
 lafand_dataset_statistics = get_dataset_statistics(f"{BUCKET_DIR}lafand/stats")
 lafand_dataset_statistics = {
@@ -180,8 +185,14 @@ lafand_dataset_statistics = {
 lafand_tasks = []
 
 for language in LAFAND_LANGUAGES:
-    pivot = "en" if language in LAFAND_EN_PIVOT_LANGUAGES else "fr"
     task_name = f"{pivot}_{language}_lafand_mt"
+
+    pivot = "en" if language in LAFAND_EN_PIVOT_LANGUAGES else "fr"
+    src_code = pivot if EN_XX_TRANSLATION else language
+    tgt_code = language if EN_XX_TRANSLATION else pivot
+    source_language = LANGUAGE_CODE_MAP[pivot] if EN_XX_TRANSLATION else language
+    target_language = LANGUAGE_CODE_MAP[language] if EN_XX_TRANSLATION else LANGUAGE_CODE_MAP[pivot]
+    prefix = f"Translate {source_language} to {target_language}: "
 
     JSONLINE_SPECS = {"translation": {
         language: tf.TensorSpec(tf.TensorShape([]), tf.string, name=language)
@@ -213,7 +224,7 @@ for language in LAFAND_LANGUAGES:
         ),
         preprocessors=[
             parse_jsonline,
-            translate,
+            partial(translate, prefix=prefix, src_code=src_code, tgt_code=tgt_code),
             seqio.preprocessors.tokenize,
             seqio.preprocessors.append_eos_after_trim
         ],

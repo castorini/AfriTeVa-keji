@@ -51,8 +51,7 @@ def create_news_classification_example(
 
 
 @map_over_dataset
-def translate(example, src_language, src_code, tgt_language, tgt_code) -> TTTExample:
-    prefix = f"Translate {src_language} to {tgt_language}: "
+def translate(example, prefix, src_code, tgt_code) -> TTTExample:
     return {
         'inputs': tf.strings.join([prefix, example[src_code]]),
         'targets': example[tgt_code],

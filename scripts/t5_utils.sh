@@ -47,6 +47,7 @@ case $ACTION in
     eval)
         set -x;
         python -m t5x.eval \
+        --gin_file="config/models/t5_1_1/$MODEL_SIZE.gin" \
         --gin_file="config/runs/t5_1_1/eval.gin" \
         --gin.EVAL_OUTPUT_DIR=\"${EVAL_OUTPUT_DIR}\" \
         --alsologtostderr \
@@ -55,6 +56,7 @@ case $ACTION in
     infer)
         set -x;
         python -m t5x.infer \
+        --gin_file="config/models/t5_1_1/$MODEL_SIZE.gin" \
         --gin_file="config/runs/t5_1_1/infer.gin" \
         --gin.INFER_OUTPUT_DIR=\"${OUTPUT_DIR}\" \
         --alsologtostderr \
