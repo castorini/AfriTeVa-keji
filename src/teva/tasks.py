@@ -185,9 +185,8 @@ lafand_dataset_statistics = {
 lafand_tasks = []
 
 for language in LAFAND_LANGUAGES:
-    task_name = f"{pivot}_{language}_lafand_mt"
-
     pivot = "en" if language in LAFAND_EN_PIVOT_LANGUAGES else "fr"
+    task_name = f"{pivot}_{language}_lafand_mt" if EN_XX_TRANSLATION else f"{language}_{pivot}_lafand_mt"
     src_code = pivot if EN_XX_TRANSLATION else language
     tgt_code = language if EN_XX_TRANSLATION else pivot
     source_language = LANGUAGE_CODE_MAP[pivot] if EN_XX_TRANSLATION else language
