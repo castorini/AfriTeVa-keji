@@ -3,13 +3,10 @@ include 't5x/configs/runs/finetune.gin'
 import teva.tasks
 
 BATCH_SIZE = 64
-MIXTURE_OR_TASK_NAME = "masakhanews"
-TASK_FEATURE_LENGTHS = {'inputs': 512, 'targets': 2}
 DROPOUT_RATE = 0.1
 EVAL_STEPS = 20         # TODO: @theyorubayesian
 EVAL_PERIOD = 1000
 
-TRAIN_STEPS = 529288  # 524288 pre-trained steps + 5000 fine-tuning steps.
 USE_CACHED_TASKS = False
 
 INITIAL_CHECKPOINT_PATH = "gs://awarawa/T5_1_1_base/checkpoint_524288"

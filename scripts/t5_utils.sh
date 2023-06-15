@@ -1,5 +1,6 @@
 ACTION=$1 && shift
 MODEL_SIZE=$1 && shift
+TASK=$1 && shift
 OUTPUT_DIR=$1 && shift
 
 if [ $# -gt 0 ]; then
@@ -22,40 +23,44 @@ case $MODEL_SIZE in
     *)
         echo "Model size must be one of: base, large"
         exit
+        ;;
 esac
 
 case $ACTION in
     pretrain)
         set -x;
-        python -m t5x.main \
+        python3 -m t5x.main \
         --run_mode="train" \
         --gin_file="config/models/t5_1_1/$MODEL_SIZE.gin" \
         --gin_file="config/runs/t5_1_1/pretrain.gin" \
+        --gin.MIXTURE_OR_TASK_NAME=\"${TASK}\" \
         --gin.MODEL_DIR=\"${OUTPUT_DIR}\" \
         "$@" \
         --alsologtostderr
         ;;
     finetune)
         set -x;
-        python -m t5x.train \
+        python3 -m t5x.train \
         --gin_file="config/models/t5_1_1/$MODEL_SIZE.gin" \
         --gin_file="config/runs/t5_1_1/finetune.gin" \
+        --gin.MIXTURE_OR_TASK_NAME=\"${TASK}\" \
         --gin.MODEL_DIR=\"${OUTPUT_DIR}\" \
         "$@" \
         --alsologtostderr 
         ;;
     eval)
         set -x;
-        python -m t5x.eval \
+        python3 -m t5x.eval \
         --gin_file="config/models/t5_1_1/$MODEL_SIZE.gin" \
         --gin_file="config/runs/t5_1_1/eval.gin" \
+        --gin.MIXTURE_OR_TASK_NAME=\"${TASK}\" \
         --gin.EVAL_OUTPUT_DIR=\"${EVAL_OUTPUT_DIR}\" \
         --alsologtostderr \
         "$@"
         ;;
     infer)
         set -x;
-        python -m t5x.infer \
+        python3 -m t5x.infer \
         --gin_file="config/models/t5_1_1/$MODEL_SIZE.gin" \
         --gin_file="config/runs/t5_1_1/infer.gin" \
         --gin.INFER_OUTPUT_DIR=\"${OUTPUT_DIR}\" \

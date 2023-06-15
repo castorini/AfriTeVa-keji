@@ -8,7 +8,7 @@ import tensorflow as tf
 from dotenv import load_dotenv
 from t5.data.preprocessors import span_corruption, summarize
 from t5.data.utils import rate_num_examples
-from t5.evaluation.metrics import accuracy, bleu 
+from t5.evaluation.metrics import accuracy, bleu, rouge
 
 from teva.metrics import chrf, weighted_multiclass_f1
 from teva.preprocessors import create_news_classification_example, jsonline_to_dict, line_to_dict, translate
@@ -114,11 +114,11 @@ masakhanews_dataset_statistics = {
 
 masakhanews_tasks = []
 
-JSONLINE_SPECS = {
+MASAKHANEWS_JSONLINE_SPECS = {
     field: tf.TensorSpec(tf.TensorShape([]), tf.string, name=field)
     for field in ["category", "headline", "text", "url"]
 }
-parse_jsonline = partial(jsonline_to_dict, specs=JSONLINE_SPECS)
+parse_masakhanews_jsonline = partial(jsonline_to_dict, specs=MASAKHANEWS_JSONLINE_SPECS)
 
 for language in MASAKHANEWS_LANGUAGES:
     lang_config_name = f"{language}_masakhanews"
@@ -146,7 +146,7 @@ for language in MASAKHANEWS_LANGUAGES:
             num_input_examples=masakhanews_dataset_statistics[language]
         ),
         preprocessors=[
-            parse_jsonline,
+            parse_masakhanews_jsonline,
             create_news_classification_example,
             seqio.preprocessors.tokenize,
             seqio.preprocessors.append_eos_after_trim
@@ -182,75 +182,142 @@ lafand_dataset_statistics = {
     } for language in LAFAND_LANGUAGES
 }
 
-lafand_tasks = []
+lafand_en_xx_tasks = []
+lafand_xx_en_tasks = []
 
 for language in LAFAND_LANGUAGES:
     pivot = "en" if language in LAFAND_EN_PIVOT_LANGUAGES else "fr"
-    task_name = f"{pivot}_{language}_lafand_mt" if EN_XX_TRANSLATION else f"{language}_{pivot}_lafand_mt"
-    src_code = pivot if EN_XX_TRANSLATION else language
-    tgt_code = language if EN_XX_TRANSLATION else pivot
-    source_language = LANGUAGE_CODE_MAP[pivot] if EN_XX_TRANSLATION else language
-    target_language = LANGUAGE_CODE_MAP[language] if EN_XX_TRANSLATION else LANGUAGE_CODE_MAP[pivot]
-    prefix = f"Translate {source_language} to {target_language}: "
+
+    lafand_en_xx_task_name = f"{pivot}_{language}_lafand_mt"
+    en_xx_prefix = f"Translate {LANGUAGE_CODE_MAP[pivot]} to {LANGUAGE_CODE_MAP[language]}: "
+
+    lafand_xx_en_task_name = f"{language}_{pivot}_lafand_mt"
+    xx_en_prefix = f"Translate {LANGUAGE_CODE_MAP[language]} to {LANGUAGE_CODE_MAP[pivot]}: "
 
     JSONLINE_SPECS = {"translation": {
         language: tf.TensorSpec(tf.TensorShape([]), tf.string, name=language)
         for language in [pivot, language]
     }}
-    parse_jsonline = partial(jsonline_to_dict, specs=JSONLINE_SPECS, return_key="translation")
+    parse_lafand_jsonline = partial(jsonline_to_dict, specs=JSONLINE_SPECS, return_key="translation")
+
+    lafand_source = seqio.TextLineDataSource(
+        split_to_filepattern={
+            "train": LAFAND_DATASET_PATH.substitute(
+                pivot=pivot,
+                split="train",
+                language=language
+            ),
+            "validation": LAFAND_DATASET_PATH.substitute(
+                pivot=pivot,
+                split="dev",
+                language=language
+            ),
+            "test": LAFAND_DATASET_PATH.substitute(
+                pivot=pivot,
+                split="test",
+                language=language
+            )
+        },
+        num_input_examples=lafand_dataset_statistics[language]
+    )
 
     seqio.TaskRegistry.add(
-        name=task_name,
-        source=seqio.TextLineDataSource(
-            split_to_filepattern={
-                    "train": LAFAND_DATASET_PATH.substitute(
-                        pivot=pivot,
-                        split="train",
-                        language=language
-                    ),
-                    "validation": LAFAND_DATASET_PATH.substitute(
-                        pivot=pivot,
-                        split="dev",
-                        language=language
-                    ),
-                    "test": LAFAND_DATASET_PATH.substitute(
-                        pivot=pivot,
-                        split="test",
-                        language=language
-                    )
-                },
-            num_input_examples=lafand_dataset_statistics[language]
-        ),
+        name=lafand_en_xx_task_name,
+        source=lafand_source,
         preprocessors=[
-            parse_jsonline,
-            partial(translate, prefix=prefix, src_code=src_code, tgt_code=tgt_code),
+            parse_lafand_jsonline,
+            partial(translate, prefix=en_xx_prefix, src_code=pivot, tgt_code=language),
             seqio.preprocessors.tokenize,
             seqio.preprocessors.append_eos_after_trim
         ],
         output_features=DEFAULT_OUTPUT_FEATURES,
         metric_fns=[bleu, chrf]
     )
-    lafand_tasks.append(task_name)
+    lafand_en_xx_tasks.append(lafand_en_xx_task_name)
 
-seqio.MixtureRegistry.add("lafand_mt", lafand_tasks, default_rate=DEFAULT_MIX_RATE)
+    seqio.TaskRegistry.add(
+        name=lafand_xx_en_task_name,
+        source=lafand_source,
+        preprocessors=[
+            parse_lafand_jsonline,
+            partial(translate, prefix=xx_en_prefix, src_code=language, tgt_code=pivot),
+            seqio.preprocessors.tokenize,
+            seqio.preprocessors.append_eos_after_trim
+        ],
+        output_features=DEFAULT_OUTPUT_FEATURES,
+        metric_fns=[bleu, chrf]
+    )
+    lafand_xx_en_tasks.append(lafand_xx_en_task_name)
+
+seqio.MixtureRegistry.add("lafand_mt_en_xx", lafand_en_xx_tasks, default_rate=DEFAULT_MIX_RATE)
+seqio.MixtureRegistry.add("lafand_mt_xx_en", lafand_xx_en_tasks, default_rate=DEFAULT_MIX_RATE)
+seqio.MixtureRegistry.add("lafand_mt", [*lafand_xx_en_tasks, *lafand_en_xx_tasks], default_rate=DEFAULT_MIX_RATE)
 
 # -------------------
 # XLSUM Summarization
 # -------------------
-XLM_LANGUAGES = [
-    "amharic", "english", "french", "hausa", 
+# For inference: beam search - size: 4, length penalty: 0.6
+# Batch size: 256
+XLSUM_DATASET_PATH = Template(BUCKET_DIR + "xlsum/${language}/${split}.json")
+
+XLSUM_LANGUAGES = [
+    "amharic", "english", "french", "hausa",
     "igbo", "oromo", "pidgin", "portuguese",
-    "somali", "swahili", "tigrinya", "yoruba", 
+    "somali", "swahili", "tigrinya", "yoruba",
 ]
+xlsum_dataset_statistics = get_dataset_statistics(f"{BUCKET_DIR}xlsum/stats")
+xlsum_dataset_statistics = {
+    language: {
+        split: xlsum_dataset_statistics[split][language]
+        for split in ["train", "validation", "test"]
+    } for language in XLSUM_LANGUAGES
+}
 
-# xsum_dataset_statistics = get_dataset_statistics() # TODO: @theyorubayesian
+XLSUM_JSONLINE_SPECS = {
+    field: tf.TensorSpec(tf.TensorShape([]), tf.string, name=field)
+    for field in ["id", "url", "title", "summary", "text"]
+}
+parse_xlsum_jsonline = partial(jsonline_to_dict, specs=XLSUM_JSONLINE_SPECS)
 
-for language in XLM_LANGUAGES:
-    lang_config_name = f"{language.capitalize()}XSUM"
+xlsum_tasks = []
 
-    # seqio.TaskRegistry.add(
-    #     lang_config_name,
-    #     source=seqio.TextLineDataSource(
-            
-    #     )
-    # )
+for language in XLSUM_LANGUAGES:
+    xlsum_task_name = f"{language}_xlsum"
+
+    seqio.TaskRegistry.add(
+        xlsum_task_name,
+        source=seqio.TextLineDataSource(
+            split_to_filepattern={
+                    "train": XLSUM_DATASET_PATH.substitute(
+                        split="train",
+                        language=language
+                    ),
+                    "validation": XLSUM_DATASET_PATH.substitute(
+                        split="validation",
+                        language=language
+                    ),
+                    "test": XLSUM_DATASET_PATH.substitute(
+                        split="test",
+                        language=language
+                    )
+                },
+            num_input_examples=xlsum_dataset_statistics[language]
+        ),
+        preprocessors=[
+            parse_xlsum_jsonline,
+            partial(summarize, article_key="text", summary_key="summary"),
+            seqio.preprocessors.tokenize,
+            seqio.preprocessors.append_eos_after_trim
+        ],
+        output_features=DEFAULT_OUTPUT_FEATURES,
+        metric_fns=[rouge]
+    )
+    xlsum_tasks.append(xlsum_task_name)
+
+seqio.MixtureRegistry.add("xlsum", xlsum_tasks, default_rate=DEFAULT_MIX_RATE)
+
+# --------------------
+# All Evaluation Tasks
+# --------------------
+all_tasks = ["masakhanews", "lafand_mt", "xlsum"]
+seqio.MixtureRegistry.add("masakhanews_lafand_xlsum_afriqa", all_tasks, default_rate=DEFAULT_MIX_RATE)
