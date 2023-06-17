@@ -1,10 +1,10 @@
 set -x;
-export CUDA_VISIBLE_DEVICES="0,1,2,3"
+# export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
 # Pass `true` if you you set env var `DATA_GCP_DIR` to a local path on your machine
-USING_LOCAL_DATASET=true
+USING_LOCAL_DATASET=false
 # Pass full bucket dir for dataset if dataset is not on local.
-DATASET_DIR=data/lafand                                                 # TODO: Change based on your task
+DATASET_DIR=gs://afriqa-bucket/masakhanews                                                 # TODO: Change based on your task
 TRAIN_BATCH_SIZE=32
 EVAL_BATCH_SIZE=16
 INFER_BATCH_SIZE=64                                                     # TODO: Reduce by half if OOM error during inference_evaluation
@@ -13,23 +13,23 @@ CHECKPOINT_PERIOD=auto                                                  # If aut
 MODEL_SIZE="base"
 EVAL_PERIOD=auto                                                        # If auto, we run evaluations after every epoch. Otherwise set to value.
 # Please pass FEATURE_LENGTHS as string dictionary.
-FEATURE_LENGTHS="{'inputs': 512, 'targets': 200}"                       # TODO: Change based on your task
+FEATURE_LENGTHS="{'inputs': 512, 'targets': 2}"                       # TODO: Change based on your task
 # We pretrained for 524288 steps if you use the final checkpoints.
 # If you use any other checkpoint, take note of its pre-trained steps.
 PRETRAINED_STEPS=524288
 FT_NUM_EPOCHS=5
-OUTPUT_DIR="arawat5_base_lafand"                                        # TODO: Change to unique output dir
-mkdir -p logs/$OUTPUT_DIR
+OUTPUT_DIR="arawat5_base_masakhanews"                                        # TODO: Change to unique output dir
+mkdir -p {logs/$OUTPUT_DIR,runs/$OUTPUT_DIR}
 
 REMOVE_CHECKPOINTS=true
 # ---------------------------------------------
 
-LANGUAGES=("yor")                                                       # TODO: Use the list defined for the task in src/teva/tasks.py
+LANGUAGES=("amh" "eng" "fra" "hau" "ibo" "lin" "lug" "orm" "pcm" "run" "sna" "som" "swa" "tir" "xho" "yor")                                              # TODO: Use the list defined for the task in src/teva/tasks.py
 
 for language in ${LANGUAGES[@]}
 do
-    LANGUAGE_DATASET_DIR=$DATASET_DIR/en-${language}/train.json         # TODO: Change path so that we can match the train set of each language
-    task=                                                               # TODO: See src/teva/tasks.py. Please change this so that we get the correct task for each language.                                    
+    LANGUAGE_DATASET_DIR=$DATASET_DIR/${language}/train.jsonl         # TODO: Change path so that we can match the train set of each language
+    task="${language}_masakhanews"                                                               # TODO: See src/teva/tasks.py. Please change this so that we get the correct task for each language.                                    
     # --------------------------------------------------------------------
     # Unfortunately, t5x uses number of steps rather than number of epochs
     # We dynamically calculate the number of steps for each language's finetuning task using

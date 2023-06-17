@@ -1,5 +1,4 @@
 set -x;
-set -n;
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
 # Pass `true` if you you set env var `DATA_GCP_DIR` to a local path on your machine
@@ -24,12 +23,13 @@ mkdir -p logs/$OUTPUT_DIR
 REMOVE_CHECKPOINTS=true
 # ---------------------------------------------
 
+# LANGUAGES=("hau" "pcm" "swa" "ibo" "yor" "zul")
 LANGUAGES=("hau")
 
 for language in ${LANGUAGES[@]}
 do
     # TODO: You can check the task name format in src/teva/tasks.py
-    for task in "${language}_en_lafand_mt" # "en_${language}_lafand_mt"
+    for task in "${language}_en_lafand_mt" "en_${language}_lafand_mt"
     do
         if [[ $USING_LOCAL_DATASET == "true" ]]; then
             num_examples=$(wc -l $DATASET_DIR/en-${language}/train.json | cut -f 1 -d " ")
@@ -40,12 +40,12 @@ do
         num_steps_per_epoch=$((num_examples/TRAIN_BATCH_SIZE))
         ft_steps=$((FT_NUM_EPOCHS * num_steps_per_epoch))
         # TRAIN_STEPS MUST ALWAYS BE pre-trained steps + no. of fine-tuning steps.
-        train_steps=$((PRETRAINED_STEPS + num_steps_per_epoch))
+        train_steps=$((PRETRAINED_STEPS + ft_steps))
 
         [[ $EVAL_PERIOD == "auto" ]] && EVAL_PERIOD=$num_steps_per_epoch
         [[ $CHECKPOINT_PERIOD == "auto" ]] && CHECKPOINT_PERIOD=$num_steps_per_epoch
 
-        for seed in 6
+        for seed in 1 2 3
         do
             seed_output_dir=runs/$OUTPUT_DIR/${task}_${seed}
 
@@ -64,7 +64,7 @@ do
             --output_dir $seed_output_dir \
             --cuda_12 \
             --no_infer_eval \
-            > logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
+            >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
             && finetuned=true
 
             checkpoints=($(ls $seed_output_dir | grep checkpoint | grep -v "524288"))
@@ -82,7 +82,7 @@ do
                 --batch_size $EVAL_BATCH_SIZE \
                 --output_dir $seed_output_dir/eval_${checkpoint_steps} \
                 --cuda_12 \
-                >> logs/$OUTPUT_DIR/${task}_${seed}_eval.log
+                >& logs/$OUTPUT_DIR/${task}_${seed}_eval_${checkpoint_steps}.log
             done
 
             if [[ $REMOVE_CHECKPOINTS == "true" ]]; then

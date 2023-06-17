@@ -1,4 +1,4 @@
-include 'config/models/tpu/t5_1_1/base.gin'
+include 'config/models/t5_1_1/base.gin'
 
 # ------------------- Network specification overrides --------------------------
 network.Transformer.config = @network.T5Config()
