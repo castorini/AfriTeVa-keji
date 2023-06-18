@@ -1,6 +1,7 @@
 {
     set -x;
-    # export CUDA_VISIBLE_DEVICES="0,1,2,3"
+    set -e;
+    export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
     # Pass `true` if you you set env var `DATA_GCP_DIR` to a local path on your machine
     USING_LOCAL_DATASET=true
@@ -9,7 +10,7 @@
     TRAIN_BATCH_SIZE=32
     EVAL_BATCH_SIZE=16
     INFER_BATCH_SIZE=64                                                     # TODO: Reduce by half if OOM error during inference_evaluation
-    CHECKPOINT="gs://awarawa/T5_1_1_base/checkpoint_524288"                 # TODO: Change to the checkpoint you want to value on
+    CHECKPOINT="gs://awarawa/T5_1_1_large/checkpoint_250000"                 # TODO: Change to the checkpoint you want to value on
     CHECKPOINT_PERIOD=auto                                                  # If auto, we save checkpoint after every epoch. Otherwise set to value.
     MODEL_SIZE="base"
     EVAL_PERIOD=auto                                                        # If auto, we run evaluations after every epoch. Otherwise set to value.
@@ -19,7 +20,7 @@
     # If you use any other checkpoint, take note of its pre-trained steps.
     PRETRAINED_STEPS=524288
     FT_NUM_EPOCHS=5
-    OUTPUT_DIR="arawat5_base_xlsum"                                        # TODO: Change to unique output dir
+    OUTPUT_DIR="arawat5_large_ckpt_250k_xlsum"                                        # TODO: Change to unique output dir
     mkdir -p logs/$OUTPUT_DIR
 
     REMOVE_CHECKPOINTS=true
@@ -46,8 +47,8 @@
         # TRAIN_STEPS MUST ALWAYS BE pre-trained steps + no. of fine-tuning steps.
         train_steps=$((PRETRAINED_STEPS + ft_steps))
 
-        [[ $EVAL_PERIOD == "auto" ]] && EVAL_PERIOD=$num_steps_per_epoch
-        [[ $CHECKPOINT_PERIOD == "auto" ]] && CHECKPOINT_PERIOD=$num_steps_per_epoch
+        [[ $EVAL_PERIOD == "auto" ]] && _EVAL_PERIOD=$num_steps_per_epoch || _EVAL_PERIOD=$EVAL_PERIOD
+        [[ $CHECKPOINT_PERIOD == "auto" ]] && _CHECKPOINT_PERIOD=$num_steps_per_epoch || _CHECKPOINT_PERIOD=$CHECKPOINT_PERIOD
         # ------------------------------------------------------------------------
 
         for seed in 1 2 3
@@ -56,7 +57,7 @@
 
             # For some tasks, running inference_evaluation during training causes 00M
             # no matter how small the `INFER_BATCH_SIZE`
-            # Replace `--gininfer_eval.utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE` with `--no_infer_eval`` 
+            # Replace `--gin.infer_eval.utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE` with `--no_infer_eval`` 
             # to disable inference evaluation during training.
             # You will need to run evaluation on the checkpoints after training is done.
             # TODO: Remove the `--cuda_12` command if you're not on CUDA 12
@@ -66,12 +67,11 @@
             --feature_lengths "$FEATURE_LENGTHS" \
             --batch_size $TRAIN_BATCH_SIZE \
             --checkpoint $CHECKPOINT \
-            --checkpoint_period $CHECKPOINT_PERIOD \
-            --eval_period $EVAL_PERIOD \
+            --checkpoint_period $_CHECKPOINT_PERIOD \
+            --eval_period $_EVAL_PERIOD \
             --train_steps $train_steps \
             --model_size $MODEL_SIZE \
             --output_dir $seed_output_dir \
-            --cuda_12 \
             --gin.infer_eval/utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE \
             >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
             && finetuned=true

@@ -46,8 +46,8 @@
         # TRAIN_STEPS MUST ALWAYS BE pre-trained steps + no. of fine-tuning steps.
         train_steps=$((PRETRAINED_STEPS + ft_steps))
 
-        [[ $EVAL_PERIOD == "auto" ]] && EVAL_PERIOD=$num_steps_per_epoch
-        [[ $CHECKPOINT_PERIOD == "auto" ]] && CHECKPOINT_PERIOD=$num_steps_per_epoch
+        [[ $EVAL_PERIOD == "auto" ]] && _EVAL_PERIOD=$num_steps_per_epoch || _EVAL_PERIOD=$EVAL_PERIOD
+        [[ $CHECKPOINT_PERIOD == "auto" ]] && _CHECKPOINT_PERIOD=$num_steps_per_epoch || _CHECKPOINT_PERIOD=$CHECKPOINT_PERIOD
         # ------------------------------------------------------------------------
 
         for seed in 1 2 3
@@ -59,24 +59,23 @@
             # Replace `--gininfer_eval.utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE` with `--no_infer_eval`` 
             # to disable inference evaluation during training.
             # You will need to run evaluation on the checkpoints after training is done.
-            # TODO: Remove the `--cuda_12` command if you're not on CUDA 12
+            # TODO: Pass `--cuda_12` command if you're on CUDA 12
             bash scripts/t5_utils.sh \
             --action finetune \
             --task $task \
             --feature_lengths "$FEATURE_LENGTHS" \
             --batch_size $TRAIN_BATCH_SIZE \
             --checkpoint $CHECKPOINT \
-            --checkpoint_period $CHECKPOINT_PERIOD \
-            --eval_period $EVAL_PERIOD \
+            --checkpoint_period $_CHECKPOINT_PERIOD \
+            --eval_period $_EVAL_PERIOD \
             --train_steps $train_steps \
             --model_size $MODEL_SIZE \
             --output_dir $seed_output_dir \
-            --cuda_12 \
             --gin.infer_eval/utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE \
             >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
             && finetuned=true
 
-            checkpoints=($(ls $seed_output_dir | grep checkpoint | grep -v "524288"))
+            checkpoints=($(ls $seed_output_dir | grep checkpoint | grep -v $PRETRAINED_STEPS))
 
             # Uncomment if you are using `no_infer_eval` when finetuning.
             # This will run inference evaluation on checkpoints produced during training

@@ -1,33 +1,33 @@
 {
     set -x;
     set -e;
-    export CUDA_VISIBLE_DEVICES="0,1"
+    export CUDA_VISIBLE_DEVICES="2,3"
 
     # Pass `true` if you you set env var `DATA_GCP_DIR` to a local path on your machine
     USING_LOCAL_DATASET=true
     # Pass full bucket dir for dataset if dataset is not on local.
     DATASET_DIR=data/lafand
     TRAIN_BATCH_SIZE=16
-    EVAL_BATCH_SIZE=64
-    INFER_BATCH_SIZE=64
-    CHECKPOINT="gs://awarawa/T5_1_1_base/checkpoint_524288"
+    EVAL_BATCH_SIZE=32
+    INFER_BATCH_SIZE=32
+    CHECKPOINT="gs://awarawa/T5_1_1_large/checkpoint_300000"
     CHECKPOINT_PERIOD=auto
-    MODEL_SIZE="base"
+    MODEL_SIZE="large"
     EVAL_PERIOD=auto
     # Please pass FEATURE_LENGTHS as string dictionary.
     FEATURE_LENGTHS="{'inputs': 512, 'targets': 200}"
     # We pretrained for 524288 steps if you use the final checkpoints.
     # If you use any other checkpoint, take note of its pre-trained steps.
-    PRETRAINED_STEPS=524288
+    PRETRAINED_STEPS=300000
     FT_NUM_EPOCHS=5
-    OUTPUT_DIR="arawat5_base_lafand_hau_pcm_swa"
+    OUTPUT_DIR="arawat5_large_lafand_ibo_yor_zul"
     mkdir -p logs/$OUTPUT_DIR
     REMOVE_CHECKPOINTS=true
     # ---------------------------------------------
 
     # LANGUAGES=("hau" "pcm" "swa" "ibo" "yor" "zul")
-    LANGUAGES=("hau" "pcm" "swa")
-    # LANGUAGES=("ibo" "yor" "zul")
+    # LANGUAGES=("hau" "pcm" "swa")
+    LANGUAGES=("ibo" "yor" "zul")
     for language in ${LANGUAGES[@]}
     do
         # TODO: You can check the task name format in src/teva/tasks.py
@@ -44,8 +44,8 @@
             # TRAIN_STEPS MUST ALWAYS BE pre-trained steps + no. of fine-tuning steps.
             train_steps=$((PRETRAINED_STEPS + ft_steps))
 
-            [[ $EVAL_PERIOD == "auto" ]] && EVAL_PERIOD=$num_steps_per_epoch
-            [[ $CHECKPOINT_PERIOD == "auto" ]] && CHECKPOINT_PERIOD=$num_steps_per_epoch
+            [[ $EVAL_PERIOD == "auto" ]] && _EVAL_PERIOD=$num_steps_per_epoch || _EVAL_PERIOD=$EVAL_PERIOD
+            [[ $CHECKPOINT_PERIOD == "auto" ]] && _CHECKPOINT_PERIOD=$num_steps_per_epoch || _CHECKPOINT_PERIOD=$CHECKPOINT_PERIOD
 
             for seed in 1 2 3
             do
@@ -59,8 +59,8 @@
                 --feature_lengths "$FEATURE_LENGTHS" \
                 --batch_size $TRAIN_BATCH_SIZE \
                 --checkpoint $CHECKPOINT \
-                --checkpoint_period $CHECKPOINT_PERIOD \
-                --eval_period $EVAL_PERIOD \
+                --checkpoint_period $_CHECKPOINT_PERIOD \
+                --eval_period $_EVAL_PERIOD \
                 --train_steps $train_steps \
                 --model_size $MODEL_SIZE \
                 --output_dir $seed_output_dir \
@@ -90,7 +90,7 @@
                 if [[ $REMOVE_CHECKPOINTS == "true" ]]; then
                     for ckpt in ${checkpoints[@]};
                     do
-                        rm -rf $ckpt
+                        rm -rf $seed_output_dir/$ckpt
                     done
                 fi
             done
