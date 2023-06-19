@@ -14,6 +14,8 @@
     CHECKPOINT_PERIOD=auto                                                  # If auto, we save checkpoint after every epoch. Otherwise set to value.
     MODEL_SIZE="base"
     EVAL_PERIOD=auto                                                        # If auto, we run evaluations after every epoch. Otherwise set to value.
+    BEAM_SEARCH_ALPHA=0.6
+    BEAM_SEARCH_WIDTH=5
     # Please pass FEATURE_LENGTHS as string dictionary.
     FEATURE_LENGTHS="{'inputs': 512, 'targets': 64}"                       # TODO: Change based on your task
     # We pretrained for 524288 steps if you use the final checkpoints.
@@ -73,6 +75,9 @@
             --model_size $MODEL_SIZE \
             --output_dir $seed_output_dir \
             --gin.infer_eval/utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE \
+            --gin.models.EncoderDecoderModel.predict_batch_with_aux.num_decodes=$BEAM_SEARCH_WIDTH \
+            --gin.models.EncoderDecoderModel.decode_fn=@decoding.beam_search \
+            --gin.decode.beam_search.alpha=$BEAM_SEARCH_ALPHA \
             >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
             && finetuned=true
 
@@ -92,6 +97,9 @@
             #     --batch_size $EVAL_BATCH_SIZE \
             #     --output_dir $seed_output_dir/eval_${checkpoint_steps} \
             #     --cuda_12 \
+            #     --gin.models.EncoderDecoderModel.predict_batch_with_aux.num_decodes=4 \
+            #     --gin.models.EncoderDecoderModel.decode_fn=@decoding.beam_search \
+            #     --gin.decode.beam_search.alpha=0.6 \
             #     >& logs/$OUTPUT_DIR/${task}_${seed}_eval_${checkpoint_steps}.log
             # done
 
