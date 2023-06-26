@@ -8,28 +8,27 @@
     # Pass full bucket dir for dataset if dataset is not on local.
     DATASET_DIR=data/xlsum                                                 # TODO: Change based on your task
     TRAIN_BATCH_SIZE=32
-    EVAL_BATCH_SIZE=16
-    INFER_BATCH_SIZE=64                                                     # TODO: Reduce by half if OOM error during inference_evaluation
-    CHECKPOINT="gs://awarawa/T5_1_1_large/checkpoint_250000"                 # TODO: Change to the checkpoint you want to value on
-    CHECKPOINT_PERIOD=auto                                                  # If auto, we save checkpoint after every epoch. Otherwise set to value.
-    MODEL_SIZE="base"
-    EVAL_PERIOD=auto                                                        # If auto, we run evaluations after every epoch. Otherwise set to value.
+    EVAL_BATCH_SIZE=4
+    INFER_BATCH_SIZE=4                                                     # TODO: Reduce by half if OOM error during inference_evaluation
+    FT_NUM_EPOCHS=10   
     BEAM_SEARCH_ALPHA=0.6
     BEAM_SEARCH_WIDTH=5
     # Please pass FEATURE_LENGTHS as string dictionary.
     FEATURE_LENGTHS="{'inputs': 512, 'targets': 64}"                       # TODO: Change based on your task
-    # We pretrained for 524288 steps if you use the final checkpoints.
-    # If you use any other checkpoint, take note of its pre-trained steps.
-    PRETRAINED_STEPS=524288
-    FT_NUM_EPOCHS=5
-    OUTPUT_DIR="arawat5_large_ckpt_250k_xlsum"                                        # TODO: Change to unique output dir
-    mkdir -p logs/$OUTPUT_DIR
-
+    # Note that we expect the checkpoint path to be of the form `/path/to/T5_1_1_MODEL_SIZE/checkpoint_PRETRAINED_STEPS/``
+    CHECKPOINT="gs://awarawa/T5_1_1_base/checkpoint_524288"                 # TODO: Change to the checkpoint you want to value on
+    CHECKPOINT_PERIOD=auto                                                  # If auto, we save checkpoint after every epoch. Otherwise set to value.
+    EVAL_PERIOD=auto                                                        # If auto, we run evaluations after every epoch. Otherwise set to value.
+    OUTPUT_DIR="arawat5_base_xlsum_actual_beam_search_4"                                        # TODO: Change to unique output dir
     REMOVE_CHECKPOINTS=true
+    # --------------------------------
+    PRETRAINED_STEPS=${CHECKPOINT##*_}
+    MODEL_SIZE=${CHECKPOINT%%/checkpoint*}
+    MODEL_SIZE=${MODEL_SIZE##*_}
+    mkdir -p {logs/$OUTPUT_DIR,runs/$OUTPUT_DIR}
     # ---------------------------------------------
 
-    LANGUAGES=("amharic" "english" "french" "hausa" "igbo" "oromo" "pidgin" "portuguese" "somali" "swahili" "tigrinya" "yoruba")                                                    # TODO: Use the list defined for the task in src/teva/tasks.py
-
+    LANGUAGES=("amharic" "hausa" "igbo" "oromo" "pidgin" "somali" "swahili" "tigrinya" "yoruba")                                                    # TODO: Use the list defined for the task in src/teva/tasks.py
     for language in ${LANGUAGES[@]}
     do
         LANGUAGE_DATASET_DIR=$DATASET_DIR/${language}/train.json         # TODO: Change path so that we can match the train set of each language
@@ -53,7 +52,7 @@
         [[ $CHECKPOINT_PERIOD == "auto" ]] && _CHECKPOINT_PERIOD=$num_steps_per_epoch || _CHECKPOINT_PERIOD=$CHECKPOINT_PERIOD
         # ------------------------------------------------------------------------
 
-        for seed in 1 2 3
+        for seed in 1
         do
             seed_output_dir=runs/$OUTPUT_DIR/${task}_${seed}
 
@@ -74,14 +73,12 @@
             --train_steps $train_steps \
             --model_size $MODEL_SIZE \
             --output_dir $seed_output_dir \
+            --cuda_12 \
             --gin.infer_eval/utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE \
-            --gin.models.EncoderDecoderModel.predict_batch_with_aux.num_decodes=$BEAM_SEARCH_WIDTH \
-            --gin.models.EncoderDecoderModel.decode_fn=@decoding.beam_search \
-            --gin.decode.beam_search.alpha=$BEAM_SEARCH_ALPHA \
             >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
             && finetuned=true
 
-            checkpoints=($(ls $seed_output_dir | grep checkpoint | grep -v "524288"))
+            checkpoints=($(ls $seed_output_dir | grep checkpoint))
 
             # Uncomment if you are using `no_infer_eval` when finetuning.
             # This will run inference evaluation on checkpoints produced during training
@@ -97,9 +94,6 @@
             #     --batch_size $EVAL_BATCH_SIZE \
             #     --output_dir $seed_output_dir/eval_${checkpoint_steps} \
             #     --cuda_12 \
-            #     --gin.models.EncoderDecoderModel.predict_batch_with_aux.num_decodes=4 \
-            #     --gin.models.EncoderDecoderModel.decode_fn=@decoding.beam_search \
-            #     --gin.decode.beam_search.alpha=0.6 \
             #     >& logs/$OUTPUT_DIR/${task}_${seed}_eval_${checkpoint_steps}.log
             # done
 

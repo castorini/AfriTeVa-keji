@@ -8,27 +8,27 @@
     # Pass full bucket dir for dataset if dataset is not on local.
     DATASET_DIR=data/lafand
     TRAIN_BATCH_SIZE=16
-    EVAL_BATCH_SIZE=32
+    EVAL_BATCH_SIZE=8
     INFER_BATCH_SIZE=4
-    CHECKPOINT="gs://awarawa/T5_1_1_large/checkpoint_300000"
-    CHECKPOINT_PERIOD=auto
-    MODEL_SIZE="large"
-    EVAL_PERIOD=auto
-    BEAM_SEARCH_ALPHA=0.6
-    BEAM_SEARCH_WIDTH=5
+    FT_NUM_EPOCHS=5
     # Please pass FEATURE_LENGTHS as string dictionary.
     FEATURE_LENGTHS="{'inputs': 512, 'targets': 200}"
-    # We pretrained for 524288 steps if you use the final checkpoints.
-    # If you use any other checkpoint, take note of its pre-trained steps.
-    PRETRAINED_STEPS=300000
-    FT_NUM_EPOCHS=5
-    OUTPUT_DIR="arawat5_large_lafand_hau_pcm_swa"
-    mkdir -p logs/$OUTPUT_DIR
+    # Note that we expect the checkpoint path to be of the form `/path/to/T5_1_1_MODEL_SIZE/checkpoint_PRETRAINED_STEPS/``
+    CHECKPOINT="gs://awarawa/T5_1_1_large/checkpoint_300000"
+    OUTPUT_DIR="arawat5_large_lafand_beam_search_5"
+    CHECKPOINT_PERIOD=auto
+    EVAL_PERIOD=auto
     REMOVE_CHECKPOINTS=true
+
+    # --------------------------------
+    PRETRAINED_STEPS=${CHECKPOINT##*_}
+    MODEL_SIZE=${CHECKPOINT%%/checkpoint*}
+    MODEL_SIZE=${MODEL_SIZE##*_}
+    mkdir -p {logs/$OUTPUT_DIR,runs/$OUTPUT_DIR}
     # ---------------------------------------------
 
-    # LANGUAGES=("hau" "pcm" "swa" "ibo" "yor" "zul")
-    LANGUAGES=("pcm" "swa")
+    LANGUAGES=("hau" "pcm" "swa" "ibo" "yor" "zul" "tsn" "twi")
+    # LANGUAGES=("pcm" "swa")
     # LANGUAGES=("ibo" "yor" "zul")
     for language in ${LANGUAGES[@]}
     do
@@ -68,13 +68,10 @@
                 --output_dir $seed_output_dir \
                 --cuda_12 \
                 --gin.infer_eval/utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE \
-                --gin.models.EncoderDecoderModel.predict_batch_with_aux.num_decodes=$BEAM_SEARCH_WIDTH \
-                --gin.models.EncoderDecoderModel.decode_fn=@decoding.beam_search \
-                --gin.decode.beam_search.alpha=$BEAM_SEARCH_ALPHA \
                 >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
                 && finetuned=true
 
-                checkpoints=($(ls $seed_output_dir | grep checkpoint | grep -v "524288"))
+                checkpoints=($(ls $seed_output_dir | grep checkpoint))
 
                 # Uncomment if you are using `no_infer_eval` when finetuning.
                 # for checkpoint in ${checkpoints[@]}

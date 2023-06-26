@@ -2,7 +2,6 @@ import seqio
 
 import teva.tasks
 
-include 'config/models/tpu/t5_1_1/base.gin'
 include 't5x/configs/runs/pretrain.gin'
 
 MIXTURE_OR_TASK_NAME = "news_and_wiki"

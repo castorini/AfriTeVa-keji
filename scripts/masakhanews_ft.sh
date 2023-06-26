@@ -1,6 +1,6 @@
 {
     set -x;
-    # export CUDA_VISIBLE_DEVICES="0,1,2,3"
+    export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
     # Pass `true` if you you set env var `DATA_GCP_DIR` to a local path on your machine
     USING_LOCAL_DATASET=false
@@ -9,20 +9,21 @@
     TRAIN_BATCH_SIZE=32
     EVAL_BATCH_SIZE=16
     INFER_BATCH_SIZE=64                                                     # TODO: Reduce by half if OOM error during inference_evaluation
+    FT_NUM_EPOCHS=5                
+    # Please pass FEATURE_LENGTHS as string dictionary.
+    FEATURE_LENGTHS="{'inputs': 512, 'targets': 64}"                       # TODO: Change based on your task
+    # Note that we expect the checkpoint path to be of the form `/path/to/T5_1_1_MODEL_SIZE/checkpoint_PRETRAINED_STEPS/``
     CHECKPOINT="gs://awarawa/T5_1_1_base/checkpoint_524288"                 # TODO: Change to the checkpoint you want to value on
     CHECKPOINT_PERIOD=auto                                                  # If auto, we save checkpoint after every epoch. Otherwise set to value.
-    MODEL_SIZE="base"
     EVAL_PERIOD=auto                                                        # If auto, we run evaluations after every epoch. Otherwise set to value.
-    # Please pass FEATURE_LENGTHS as string dictionary.
-    FEATURE_LENGTHS="{'inputs': 512, 'targets': 2}"                       # TODO: Change based on your task
-    # We pretrained for 524288 steps if you use the final checkpoints.
-    # If you use any other checkpoint, take note of its pre-trained steps.
-    PRETRAINED_STEPS=524288
-    FT_NUM_EPOCHS=5
-    OUTPUT_DIR="arawat5_base_masakhanews"                                        # TODO: Change to unique output dir
-    mkdir -p {logs/$OUTPUT_DIR,runs/$OUTPUT_DIR}
-
+    OUTPUT_DIR="arawat5_base_xlsum_actual_beam_search_4"                                        # TODO: Change to unique output dir
     REMOVE_CHECKPOINTS=true
+    
+    # --------------------------------
+    PRETRAINED_STEPS=${CHECKPOINT##*_}
+    MODEL_SIZE=${CHECKPOINT%%/checkpoint*}
+    MODEL_SIZE=${MODEL_SIZE##*_}
+    mkdir -p {logs/$OUTPUT_DIR,runs/$OUTPUT_DIR}
     # ---------------------------------------------
 
     LANGUAGES=("amh" "eng" "fra" "hau" "ibo" "lin" "lug" "orm" "pcm" "run" "sna" "som" "swa" "tir" "xho" "yor")                                              # TODO: Use the list defined for the task in src/teva/tasks.py
@@ -76,7 +77,7 @@
             >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
             && finetuned=true
 
-            checkpoints=($(ls $seed_output_dir | grep checkpoint | grep -v "524288"))
+            checkpoints=($(ls $seed_output_dir | grep checkpoint))
 
             # Uncomment if you are using `no_infer_eval` when finetuning.
             # This will run inference evaluation on checkpoints produced during training
