@@ -23,13 +23,13 @@
         echo "Options:"
         echo "--------"
         echo "  -h, --help                              Display help text and exit"
-        echo "  -t, --train_steps=NUM                   Number of steps to train for. Optional if ACTION not 'pretrain' or 'finetune'"
+        echo "  -t, --train_steps=NUM                   Number of steps to train for. Optional if ACTION is not 'pretrain' or 'finetune'"
         echo "  -m, --model_size=MODEL_SIZE             MODEL_SIZE is one of: 'base', 'large'. (optional, default: base)"
         echo "  -b, --batch_size=NUM                    Use NUM as batch size for ACTION. (optional, default: 16)"
         echo "  -n, --num_microbatches=NUM              NUM microbatches to split 'batch_size' into (optional, default: 1)"
         echo "  -e, --eval_period=NUM                   EvaluationPeriod. Must be multiple of 'checkpoint_period' (optional, default: 5000)"
-        echo "  -c, --checkpoint=CHECKPOINT             Path to checkpoint for ACTION. Optional if ACTION not 'pretrain'"
-        echo "  -cp, --checkpoint_period=NUM            SaveCheckpointPeriod. Must be multiple of 'eval_period'(optional, default: 5000)"
+        echo "  -c, --checkpoint=CHECKPOINT             Path to checkpoint for ACTION. Optional if ACTION is not 'pretrain'"
+        echo "  -cp, --checkpoint_period=NUM            SaveCheckpointPeriod. Must be multiple of 'eval_period' (optional, default: 5000)"
         echo "  --cuda_12                               Indicate that hardware is CUDA 12 so that 'NCCL_P2P_DISABLE=1' is set"
         echo "  --no_infer_eval                         Disable inference_evaluation is not performed during training."
         echo 
@@ -72,7 +72,7 @@
             -b | --batch_size )             shift
                                             batch_size=$1
                                             ;;
-            -n | --num_microbatches )            shift
+            -n | --num_microbatches )       shift
                                             num_microbatches=$1
                                             ;;
             -c | --checkpoint )             shift
