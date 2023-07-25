@@ -3,22 +3,22 @@
     export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
     # Pass `true` if you you set env var `DATA_GCP_DIR` to a local path on your machine
-    USING_LOCAL_DATASET=false
+    USING_LOCAL_DATASET=true
     # Pass full bucket dir for dataset if dataset is not on local.
-    DATASET_DIR=gs://afriqa-bucket/masakhanews                                                 # TODO: Change based on your task
+    DATASET_DIR=data/lafand                                                 # TODO: Change based on your task
     TRAIN_BATCH_SIZE=32
     EVAL_BATCH_SIZE=16
     INFER_BATCH_SIZE=64                                                     # TODO: Reduce by half if OOM error during inference_evaluation
-    FT_NUM_EPOCHS=5                
+    # Note that we expect the checkpoint path to be of the form `/path/to/T5_1_1_MODEL_SIZE/checkpoint_PRETRAINED_STEPS/`
+    CHECKPOINT="gs://awarawa/T5_1_1_base/checkpoint_524288"                 # TODO: Change to the checkpoint you want to value on
+    CHECKPOINT_PERIOD=auto
+    EVAL_PERIOD=auto                                                        # If auto, we run evaluations after every epoch. Otherwise set to value.
+    OUTPUT_DIR="arawat5_base_squad_v2"
     # Please pass FEATURE_LENGTHS as string dictionary.
     FEATURE_LENGTHS="{'inputs': 512, 'targets': 64}"                       # TODO: Change based on your task
-    # Note that we expect the checkpoint path to be of the form `/path/to/T5_1_1_MODEL_SIZE/checkpoint_PRETRAINED_STEPS/``
-    CHECKPOINT="gs://awarawa/T5_1_1_base/checkpoint_524288"                 # TODO: Change to the checkpoint you want to value on
-    CHECKPOINT_PERIOD=auto                                                  # If auto, we save checkpoint after every epoch. Otherwise set to value.
-    EVAL_PERIOD=auto                                                        # If auto, we run evaluations after every epoch. Otherwise set to value.
-    OUTPUT_DIR="arawat5_base_xlsum_actual_beam_search_4"                                        # TODO: Change to unique output dir
+    ADDITIONAL_GIN_CONFIGS=()
     REMOVE_CHECKPOINTS=true
-    
+
     # --------------------------------
     PRETRAINED_STEPS=${CHECKPOINT##*_}
     MODEL_SIZE=${CHECKPOINT%%/checkpoint*}
@@ -74,6 +74,7 @@
             --output_dir $seed_output_dir \
             --cuda_12 \
             --gin.infer_eval/utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE \
+            "${ADDITIONAL_GIN_CONFIGS[@]}" \
             >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
             && finetuned=true
 

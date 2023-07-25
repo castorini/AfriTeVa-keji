@@ -21,6 +21,7 @@ from teva.preprocessors import (
     squad,
     translate
 )
+from teva.postprocessors import squad_postprocessor
 from teva.utils import get_dataset_statistics, get_labels
 from teva.vocab import DEFAULT_VOCAB
 
@@ -341,7 +342,7 @@ def add_xlsum_task():
 # SQuADV2
 # -------
 def add_squad_task():
-    SQUAD_DATASET_PATH = Template(BUCKET_DIR + "squad_v2/${split}.json")
+    SQUAD_DATASET_PATH = Template(BUCKET_DIR + "squad_v2/${split}.jsonl")
     squad_dataset_statistics = {
         split: value["squad_v2"]
         for split, value in get_dataset_statistics(f"{BUCKET_DIR}squad_v2/stats").items()
@@ -373,6 +374,7 @@ def add_squad_task():
             seqio.preprocessors.tokenize,
             seqio.preprocessors.append_eos_after_trim
         ],
+        postprocess_fn=squad_postprocessor,
         output_features=DEFAULT_OUTPUT_FEATURES,
         metric_fns=[squad_metrics]
     )
@@ -382,8 +384,8 @@ def add_squad_task():
 # -------
 def add_afriqa_task():
     AFRIQA_DATASET_PATH = Template(BUCKET_DIR + "afriqa/gold_passages/${language}/gold_span_passages.afriqa.${language}.${pivot}.${split}.json")
-    FR_PIVOT_LANGUAGES = ["bem", "hau", "ibo", "kin", "twi", "zul"]
-    EN_PIVOT_LANGUAGES = ["fon"]
+    EN_PIVOT_LANGUAGES = ["bem", "hau", "ibo", "kin", "twi", "zul"]
+    FR_PIVOT_LANGUAGES = ["fon"]
     LANGUAGES = [*EN_PIVOT_LANGUAGES, *FR_PIVOT_LANGUAGES]
 
     afriqa_dataset_statistics = get_dataset_statistics(BUCKET_DIR + "afriqa/gold_passages/stats")
@@ -429,6 +431,7 @@ def add_afriqa_task():
                 seqio.preprocessors.tokenize,
                 seqio.preprocessors.append_eos_after_trim
             ],
+            postprocess_fn=squad_postprocessor,
             output_features=DEFAULT_OUTPUT_FEATURES,
             metric_fns=[squad_metrics]
         )

@@ -43,8 +43,8 @@
     # TRAIN_STEPS MUST ALWAYS BE pre-trained steps + no. of fine-tuning steps.
     train_steps=$((PRETRAINED_STEPS + ft_steps))
 
-    [[ $EVAL_PERIOD == "auto" ]] && EVAL_PERIOD=$num_steps_per_epoch
-    [[ $CHECKPOINT_PERIOD == "auto" ]] && CHECKPOINT_PERIOD=$num_steps_per_epoch
+    [[ $EVAL_PERIOD == "auto" ]] && _EVAL_PERIOD=$num_steps_per_epoch || _EVAL_PERIOD=$EVAL_PERIOD
+    [[ $CHECKPOINT_PERIOD == "auto" ]] && _CHECKPOINT_PERIOD=$num_steps_per_epoch || _CHECKPOINT_PERIOD=$CHECKPOINT_PERIOD
     # ------------------------------------------------------------------------
 
     for seed in 1
@@ -63,8 +63,8 @@
         --feature_lengths "$FEATURE_LENGTHS" \
         --batch_size $TRAIN_BATCH_SIZE \
         --checkpoint $CHECKPOINT \
-        --checkpoint_period $CHECKPOINT_PERIOD \
-        --eval_period $EVAL_PERIOD \
+        --checkpoint_period $_CHECKPOINT_PERIOD \
+        --eval_period $_EVAL_PERIOD \
         --train_steps $train_steps \
         --model_size $MODEL_SIZE \
         --output_dir $seed_output_dir \

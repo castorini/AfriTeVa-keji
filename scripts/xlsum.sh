@@ -10,17 +10,19 @@
     TRAIN_BATCH_SIZE=32
     EVAL_BATCH_SIZE=4
     INFER_BATCH_SIZE=4                                                     # TODO: Reduce by half if OOM error during inference_evaluation
-    FT_NUM_EPOCHS=10   
+    FT_NUM_EPOCHS=10
     BEAM_SEARCH_ALPHA=0.6
     BEAM_SEARCH_WIDTH=5
-    # Please pass FEATURE_LENGTHS as string dictionary.
-    FEATURE_LENGTHS="{'inputs': 512, 'targets': 64}"                       # TODO: Change based on your task
-    # Note that we expect the checkpoint path to be of the form `/path/to/T5_1_1_MODEL_SIZE/checkpoint_PRETRAINED_STEPS/``
+    # Note that we expect the checkpoint path to be of the form `/path/to/T5_1_1_MODEL_SIZE/checkpoint_PRETRAINED_STEPS/`
     CHECKPOINT="gs://awarawa/T5_1_1_base/checkpoint_524288"                 # TODO: Change to the checkpoint you want to value on
     CHECKPOINT_PERIOD=auto                                                  # If auto, we save checkpoint after every epoch. Otherwise set to value.
     EVAL_PERIOD=auto                                                        # If auto, we run evaluations after every epoch. Otherwise set to value.
-    OUTPUT_DIR="arawat5_base_xlsum_actual_beam_search_4"                                        # TODO: Change to unique output dir
+    OUTPUT_DIR="arawat5_base_xlsum_actual_beam_search_4"                    # TODO: Change to unique output dir
+    # Please pass FEATURE_LENGTHS as string dictionary.
+    FEATURE_LENGTHS="{'inputs': 512, 'targets': 64}"                       # TODO: Change based on your task
+    ADDITIONAL_GIN_CONFIGS=()
     REMOVE_CHECKPOINTS=true
+    
     # --------------------------------
     PRETRAINED_STEPS=${CHECKPOINT##*_}
     MODEL_SIZE=${CHECKPOINT%%/checkpoint*}
@@ -75,6 +77,7 @@
             --output_dir $seed_output_dir \
             --cuda_12 \
             --gin.infer_eval/utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE \
+            "${ADDITIONAL_GIN_CONFIGS[@]}" \
             >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
             && finetuned=true
 

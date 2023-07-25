@@ -1,27 +1,26 @@
 {
     set -x;
+    set -e;
     export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
     # Pass `true` if you you set env var `DATA_GCP_DIR` to a local path on your machine
     USING_LOCAL_DATASET=true
     # Pass full bucket dir for dataset if dataset is not on local.
-    DATASET_DIR=data/lafand                                                 # TODO: Change based on your task
+    DATASET_DIR=data/xlsum                                                 # TODO: Change based on your task
     TRAIN_BATCH_SIZE=32
-    EVAL_BATCH_SIZE=16
-    INFER_BATCH_SIZE=64                                                     # TODO: Reduce by half if OOM error during inference_evaluation
+    EVAL_BATCH_SIZE=4
+    INFER_BATCH_SIZE=4                                                     # TODO: Reduce by half if OOM error during inference_evaluation
+    FT_NUM_EPOCHS=10
+    BEAM_SEARCH_ALPHA=0.6
+    BEAM_SEARCH_WIDTH=5
+    # Note that we expect the checkpoint path to be of the form `/path/to/T5_1_1_MODEL_SIZE/checkpoint_PRETRAINED_STEPS/`
     CHECKPOINT="gs://awarawa/T5_1_1_base/checkpoint_524288"                 # TODO: Change to the checkpoint you want to value on
     CHECKPOINT_PERIOD=auto                                                  # If auto, we save checkpoint after every epoch. Otherwise set to value.
-    MODEL_SIZE="base"
     EVAL_PERIOD=auto                                                        # If auto, we run evaluations after every epoch. Otherwise set to value.
+    OUTPUT_DIR="arawat5_base_xlsum_actual_beam_search_4"                    # TODO: Change to unique output dir
     # Please pass FEATURE_LENGTHS as string dictionary.
-    FEATURE_LENGTHS="{'inputs': 512, 'targets': 200}"                       # TODO: Change based on your task
-    # We pretrained for 524288 steps if you use the final checkpoints.
-    # If you use any other checkpoint, take note of its pre-trained steps.
-    PRETRAINED_STEPS=524288
-    FT_NUM_EPOCHS=5
-    OUTPUT_DIR="arawat5_base_lafand"                                        # TODO: Change to unique output dir
-    mkdir -p logs/$OUTPUT_DIR
-
+    FEATURE_LENGTHS="{'inputs': 512, 'targets': 64}"                       # TODO: Change based on your task
+    ADDITIONAL_GIN_CONFIGS=()
     REMOVE_CHECKPOINTS=true
     # ---------------------------------------------
 
@@ -72,10 +71,11 @@
             --model_size $MODEL_SIZE \
             --output_dir $seed_output_dir \
             --gin.infer_eval/utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE \
+            "${ADDITIONAL_GIN_CONFIGS[@]}" \
             >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
             && finetuned=true
 
-            checkpoints=($(ls $seed_output_dir | grep checkpoint | grep -v $PRETRAINED_STEPS))
+            checkpoints=($(ls $seed_output_dir | grep checkpoint))
 
             # Uncomment if you are using `no_infer_eval` when finetuning.
             # This will run inference evaluation on checkpoints produced during training

@@ -40,12 +40,12 @@ class TTTExample(TypedDict):
 
 
 @map_over_dataset
-def line_to_dict(line: str) -> TypedDict("example", targets=str, inputs=str):
+def line_to_dict(line: str) -> TTTExample:
     return {"targets": line, "inputs": ""}
 
 
 @map_over_dataset
-def jsonline_to_dict(line: str, specs: JsonSpec, return_key: str = None):
+def jsonline_to_dict(line: str, specs: JsonSpec, return_key: str = None) -> dict:
     decoded_json =  tfio.experimental.serialization.decode_json(line, specs=specs)
     if return_key:
         return decoded_json[return_key]
@@ -100,13 +100,14 @@ def afriqa(example: AfriQAInput, use_translated_question: bool = False) -> TTTEx
     q = tf.strings.strip(example["question_translated" if use_translated_question else "question_lang"])
     c = tf.strings.strip(example["context"])
 
+    # TODO: @theyorubayesian - What do we set when there is no answer?
     output = {
         "inputs": _string_join(["question:", q, "context:", c]),
         "targets": tf.cond(
-            tf.equal(tf.size(example["answer_pivot"]["text"]), 0),
+            tf.equal(tf.size(example["answer_pivot"]["answer_start"]), 0),
             lambda: "",
             lambda: tf.cond(
-                tf.equal(example["answer_pivot"]["text"][0], -1),
+                tf.equal(example["answer_pivot"]["answer_start"][0], -1),
                 lambda: "",
                 lambda: example["answer_pivot"]["text"][0]
             ),
