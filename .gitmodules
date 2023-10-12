@@ -1,6 +1,4 @@
 [submodule "t5x"]
 	path = t5x
-	url = https://github.com/google-research/t5x.git
-[submodule "t5-experiments"]
-	path = t5-experiments
-	url = https://github.com/yurakuratov/t5-experiments.git
+	url = https://github.com/theyorubayesian/t5x.git
+	branch = afriteva-branch
