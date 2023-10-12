@@ -1,0 +1,9 @@
+{
+    "num_tokens": 15438,
+    "num_sentences": 601,
+    "sentence_maxlen": 88,
+    "multi_fertility": 1.2094183184350304,
+    "num_multi_tokens": 18671,
+    "multi_sentence_maxlen": 113,
+    "num_multi_continuation_tokens": 3233
+}
