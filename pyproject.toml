@@ -37,12 +37,9 @@ license = { text = "Apache-2.0" }
 dev = [
   'ipykernel',
 ]
-cpu = ['jax[cpu]']
-gpu = ['jax[cuda12_pip]', 't5x @ git+https://github.com/google-research/t5x.git']
-tpu=['t5x[tpu] @ git+https://github.com/google-research/t5x.git']
 
 [project.urls]
-Homepage = "https://github.com/castorini/afribertav2"
+Homepage = "https://github.com/castorini/AfriTeVa-Keji"
 
 [project.scripts]
 teva = "teva.cli:main"

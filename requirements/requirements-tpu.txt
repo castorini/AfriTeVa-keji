@@ -1,0 +1,3 @@
+-f https://storage.googleapis.com/jax-releases/libtpu_releases.html
+jax[tpu]==0.4.13
+.t5x
