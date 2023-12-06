@@ -1,3 +1,4 @@
+#!/bin/bash
 {
     set -x;
     set -e;
@@ -28,9 +29,8 @@
     # ---------------------------------------------
 
     LANGUAGES=("hau" "pcm" "swa" "ibo" "yor" "zul" "tsn" "twi")
-    # LANGUAGES=("pcm" "swa")
-    # LANGUAGES=("ibo" "yor" "zul")
-    for language in ${LANGUAGES[@]}
+
+    for language in "${LANGUAGES[@]}"
     do
         # TODO: You can check the task name format in src/teva/tasks.py
         for task in "${language}_en_lafand_mt" "en_${language}_lafand_mt"
@@ -90,9 +90,9 @@
                 # done
 
                 if [[ $REMOVE_CHECKPOINTS == "true" ]]; then
-                    for ckpt in ${checkpoints[@]};
+                    for ckpt in "${checkpoints[@]}";
                     do
-                        rm -rf $seed_output_dir/$ckpt
+                        rm -rf "$seed_output_dir/$ckpt"
                     done
                 fi
             done

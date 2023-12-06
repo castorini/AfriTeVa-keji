@@ -1,3 +1,4 @@
+#!/bin/bash
 {
     set -x;
     set -e;
@@ -22,19 +23,14 @@
     FEATURE_LENGTHS="{'inputs': 512, 'targets': 64}"                       # TODO: Change based on your task
     ADDITIONAL_GIN_CONFIGS=()
     REMOVE_CHECKPOINTS=true
-    
-    # --------------------------------
-    PRETRAINED_STEPS=${CHECKPOINT##*_}
-    MODEL_SIZE=${CHECKPOINT%%/checkpoint*}
-    MODEL_SIZE=${MODEL_SIZE##*_}
-    mkdir -p {logs/$OUTPUT_DIR,runs/$OUTPUT_DIR}
     # ---------------------------------------------
 
-    LANGUAGES=("amharic" "hausa" "igbo" "oromo" "pidgin" "somali" "swahili" "tigrinya" "yoruba")                                                    # TODO: Use the list defined for the task in src/teva/tasks.py
+    LANGUAGES=("yor")                                                       # TODO: Use the list defined for the task in src/teva/tasks.py
+
     for language in ${LANGUAGES[@]}
     do
-        LANGUAGE_DATASET_DIR=$DATASET_DIR/${language}/train.json         # TODO: Change path so that we can match the train set of each language
-        task="${language}_xlsum"                                                              # TODO: See src/teva/tasks.py. Please change this so that we get the correct task for each language.                                    
+        LANGUAGE_DATASET_DIR=$DATASET_DIR/en-${language}/train.json         # TODO: Change path so that we can match the train set of each language
+        task=                                                               # TODO: See src/teva/tasks.py. Please change this so that we get the correct task for each language.                                    
         # --------------------------------------------------------------------
         # Unfortunately, t5x uses number of steps rather than number of epochs
         # We dynamically calculate the number of steps for each language's finetuning task using
@@ -54,16 +50,16 @@
         [[ $CHECKPOINT_PERIOD == "auto" ]] && _CHECKPOINT_PERIOD=$num_steps_per_epoch || _CHECKPOINT_PERIOD=$CHECKPOINT_PERIOD
         # ------------------------------------------------------------------------
 
-        for seed in 1
+        for seed in 1 2 3
         do
             seed_output_dir=runs/$OUTPUT_DIR/${task}_${seed}
 
             # For some tasks, running inference_evaluation during training causes 00M
             # no matter how small the `INFER_BATCH_SIZE`
-            # Replace `--gin.infer_eval.utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE` with `--no_infer_eval`` 
+            # Replace `--gininfer_eval.utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE` with `--no_infer_eval`` 
             # to disable inference evaluation during training.
             # You will need to run evaluation on the checkpoints after training is done.
-            # TODO: Remove the `--cuda_12` command if you're not on CUDA 12
+            # TODO: Pass `--cuda_12` command if you're on CUDA 12
             bash scripts/t5_utils.sh \
             --action finetune \
             --task $task \
@@ -75,7 +71,6 @@
             --train_steps $train_steps \
             --model_size $MODEL_SIZE \
             --output_dir $seed_output_dir \
-            --cuda_12 \
             --gin.infer_eval/utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE \
             "${ADDITIONAL_GIN_CONFIGS[@]}" \
             >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \

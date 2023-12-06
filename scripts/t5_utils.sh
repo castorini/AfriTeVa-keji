@@ -1,3 +1,4 @@
+#!/bin/bash
 {   
     gin() {
     echo "NOTE: When supplying a string, dict, list, or tuple value via a flag, you must put it in quotes. 
@@ -109,17 +110,17 @@
         shift
     done
 
-    ensure "action" $action
-    ensure "output_dir" $output_dir
-    ensure "task" $task
-    ensure "feature_lengths" $feature_lengths
+    ensure "action" "$action"
+    ensure "output_dir" "$output_dir"
+    ensure "task" "$task"
+    ensure "feature_lengths" "$feature_lengths"
 
-    if [[ $action == "pretrain" ]]; then
-        ensure "checkpoint" $checkpoint
-    fi
+    # if [[ $action == "pretrain" ]]; then
+    #     ensure "checkpoint" "$checkpoint"
+    # fi
 
     if [[ $action == "pretrain" || $action == "finetune" ]]; then
-        ensure "train_steps" $train_steps
+        ensure "train_steps" "$train_steps"
     fi
 
     # ----------------------------------- #

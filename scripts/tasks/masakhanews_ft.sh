@@ -1,3 +1,4 @@
+#!/bin/bash
 {
     set -x;
     export CUDA_VISIBLE_DEVICES="0,1,2,3"
@@ -28,7 +29,7 @@
 
     LANGUAGES=("amh" "eng" "fra" "hau" "ibo" "lin" "lug" "orm" "pcm" "run" "sna" "som" "swa" "tir" "xho" "yor")                                              # TODO: Use the list defined for the task in src/teva/tasks.py
 
-    for language in ${LANGUAGES[@]}
+    for language in "${LANGUAGES[@]}"
     do
         LANGUAGE_DATASET_DIR=$DATASET_DIR/${language}/train.jsonl         # TODO: Change path so that we can match the train set of each language
         task="${language}_masakhanews"                                                               # TODO: See src/teva/tasks.py. Please change this so that we get the correct task for each language.                                    
@@ -98,7 +99,7 @@
             # done
 
             if [[ $REMOVE_CHECKPOINTS == "true" ]]; then
-                for checkpoint in ${checkpoints[@]};
+                for checkpoint in "${checkpoints[@]}";
                 do
                     rm -rf $seed_output_dir/$checkpoint
                 done
