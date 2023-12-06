@@ -283,8 +283,8 @@ def add_xlsum_task():
     XLSUM_DATASET_PATH = Template(BUCKET_DIR + "xlsum/${language}/${split}.json")
 
     XLSUM_LANGUAGES = [
-        "amharic", "english", "french", "hausa",
-        "igbo", "oromo", "pidgin", "portuguese",
+        "amharic", "arabic", "english", "french", "hausa",
+        "igbo", "kirundi", "oromo", "pidgin", "portuguese",
         "somali", "swahili", "tigrinya", "yoruba",
     ]
     xlsum_dataset_statistics = get_dataset_statistics(f"{BUCKET_DIR}xlsum/stats")
