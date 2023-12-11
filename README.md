@@ -96,18 +96,26 @@ bash scripts/tasks/lafand_mt.sh
 ## Citation
 
 ```bibtex
-@article{OladipoBQPD2023EMNLP,
-  title = "Better Quality Pre-training Data and T5 Models for African Languages",
-  author = "Oladipo, Akintunde and
-    Adeyemi, Mofetoluwa and
-    Ahia, Orevaoghene and
-    Owodunni, Abraham and
-    Ogundepo, Odunayo and
-    Adelani, David and
-    Lin, Jimmy
-  ",
-  booktitle = "Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing",
-  publisher = "Association for Computational Linguistics",
-  year = "2023",
+@inproceedings{oladipo-etal-2023-better,
+    title = "Better Quality Pre-training Data and T5 Models for {A}frican Languages",
+    author = "Oladipo, Akintunde  and
+      Adeyemi, Mofetoluwa  and
+      Ahia, Orevaoghene  and
+      Owodunni, Abraham  and
+      Ogundepo, Odunayo  and
+      Adelani, David  and
+      Lin, Jimmy",
+    editor = "Bouamor, Houda  and
+      Pino, Juan  and
+      Bali, Kalika",
+    booktitle = "Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing",
+    month = dec,
+    year = "2023",
+    address = "Singapore",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2023.emnlp-main.11",
+    pages = "158--168",
+    abstract = "In this study, we highlight the importance of enhancing the quality of pretraining data in multilingual language models. Existing web crawls have demonstrated quality issues, particularly in the context of low-resource languages. Consequently, we introduce a new multilingual pretraining corpus for 16 African languages, designed by carefully auditing existing pretraining corpora to understand and rectify prevalent quality issues. To compile this dataset, we undertake a rigorous examination of current data sources for thirteen languages within one of the most extensive multilingual web crawls, mC4, and extract cleaner data through meticulous auditing and improved web crawling strategies. Subsequently, we pretrain a new T5-based model on this dataset and evaluate its performance on multiple downstream tasks. Our model demonstrates better downstream effectiveness over existing pretrained models across four NLP tasks, underscoring the critical role data quality plays in pretraining language models in low-resource scenarios. Specifically, on cross-lingual QA evaluation, our new model is more than twice as effective as multilingual T5. All code, data and models are publicly available at https://github.com/castorini/AfriTeVa-keji.",
 }
+
 ```
