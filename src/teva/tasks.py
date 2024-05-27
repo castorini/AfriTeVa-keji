@@ -19,6 +19,7 @@ from teva.preprocessors import (
     jsonline_to_dict, 
     line_to_dict,
     squad,
+    take_subset,
     translate
 )
 from teva.postprocessors import squad_postprocessor
@@ -28,6 +29,8 @@ from teva.vocab import DEFAULT_VOCAB
 load_dotenv()
 
 BUCKET_DIR=os.getenv("DATA_GCP_BUCKET_DIR", "data/")
+if BUCKET_DIR.endswith("/"):
+    BUCKET_DIR += "/"
 
 DEFAULT_TEMPERATURE: Final = 1.0  # TODO: @theyorubayesian @ToluClassics
 DEFAULT_MIX_RATE = partial(
@@ -439,6 +442,63 @@ def add_afriqa_task():
     
     seqio.MixtureRegistry.add("afriqa", afriqa_tasks, default_rate=DEFAULT_MIX_RATE)
 
+# ---
+# Aya
+# ---
+def add_aya_task():
+    DATASET_PATH = Template(BUCKET_DIR + "aya/${split}/${language}.jsonl")
+    AYA_DATASET_LANGUAGES = [
+        "afrikaans", "algerian_arabic", "amharic", "egyptian_arabic", "english",
+        "french", "hausa", "igbo", "kinyarwanda", "mozambican_portuguese",
+        "nyanja", "plateau_malagasy", "portuguese", "shona", "somali", "swahili",
+        "shona", "southern_sotho", "xhosa", "yoruba", "zulu",
+        # "moroccan_arabic", "tunisian_arabic",                 # These are alt arabic forms we could support
+        # "bemba", "central_kanuri", "fon", "twi", "wolof"      # These are African languages not in WURA
+    ]
+
+    AYA_DATASET_STATISTICS = get_dataset_statistics(BUCKET_DIR + "aya/statistics.jsonl")
+    
+    TEXT_SPEC = {
+        field: tf.TensorSpec([], tf.string, name=field) 
+        for field in ['inputs', 'targets', 'dataset_name', 'sub_dataset_name', 'task_type', 'language', 'script', 'split']
+    }
+
+    ID_SPEC = {
+        field: tf.TensorSpec([None], tf.int32, name=field)
+        for field in ["id", "template_id"]
+    }
+
+    AYA_SPEC = {**TEXT_SPEC, **ID_SPEC}
+
+    parse_aya_jsonline = partial(jsonline_to_dict, specs=AYA_SPEC)
+
+    aya_tasks = []
+    for language in AYA_DATASET_LANGUAGES:
+        task_name = f"{language}_aya"
+
+        seqio.TaskRegistry.add(
+            name=task_name,
+            source=seqio.TextLineDataSource(
+                split_to_filepattern={
+                    "train": DATASET_PATH.substitute(split="train", language=language),
+                    "validation": DATASET_PATH.substitute(split="validation", language=language),
+                    "test": DATASET_PATH.substiture(split="test", language=language)
+                },
+                num_input_examples=AYA_DATASET_STATISTICS[language]
+            ),
+            preprocessors=[
+                parse_aya_jsonline,
+                partial(take_subset, keys=["inputs", "targets"]),
+                seqio.preprocessors.tokenize,
+                seqio.preprocessors.append_eos_after_trim
+            ],
+            output_features=DEFAULT_OUTPUT_FEATURES,
+            metric_fns=[]
+        )
+
+        aya_tasks.append(task_name)
+
+    seqio.MixtureRegistry.add("aya", aya_tasks, default_rate=DEFAULT_MIX_RATE)
 
 # ------
 # MAIN
@@ -450,7 +510,8 @@ task_factory = {
     "lafand_mt": add_lafand_task,
     "xlsum": add_xlsum_task,
     "squad_v2": add_squad_task,
-    "afriqa": add_afriqa_task
+    "afriqa": add_afriqa_task,
+    "aya": add_aya_task,
 }
 task_factory = OrderedDict(sorted(task_factory.items()))
 

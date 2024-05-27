@@ -16,7 +16,7 @@ class AfriQAInput(TypedDict):
     question_lang: set
     question_translated: str
     answer_lang: str
-    answer_pivot: TypedDict("answer_pivot", {"text": List[str], "answer_start": List[int]})
+    answer_pivot: TypedDict("answer_pivot", {"text": list[str], "answer_start": list[int]})
 
 
 class ClassificationInput(TypedDict):
@@ -42,6 +42,15 @@ class TTTExample(TypedDict):
 @map_over_dataset
 def line_to_dict(line: str) -> TTTExample:
     return {"targets": line, "inputs": ""}
+
+
+@map_over_dataset
+def take_subset(example, keys: list[str]) -> TTTExample:
+    output = {
+        field: example[field]
+        for field in keys
+    }
+    return output
 
 
 @map_over_dataset

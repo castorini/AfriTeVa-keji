@@ -9,3 +9,4 @@ cmake-*/
 *.egg-info/
 .vscode/
 __pycache__/
+env/
