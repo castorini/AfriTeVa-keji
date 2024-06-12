@@ -1,4 +1,12 @@
 #!/bin/bash
+calculate_num_steps_from_epoch() {
+    if [[ $USING_LOCAL_DATASET == "true" ]]; then
+        num_examples=$(wc -l $LANGUAGE_DATASET_DIR | cut -f 1 -d " ")
+    else
+        num_examples=$(gsutil cat $LANGUAGE_DATASET_DIR | wc -l)
+    fi
+}
+
 {
     set -x;
     set -e;

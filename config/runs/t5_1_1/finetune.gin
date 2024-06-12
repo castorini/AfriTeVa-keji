@@ -43,6 +43,9 @@ TASK_FEATURE_LENGTHS = %gin.REQUIRED
 MIXTURE_OR_TASK_MODULE = %gin.REQUIRED
 TRAIN_STEPS = %gin.REQUIRED
 INITIAL_CHECKPOINT_PATH = %gin.REQUIRED
+WARMUP_STEPS = %gin.REQUIRED
+LEARNING_RATE = %gin.REQUIRED
+LEARNING_RATE_SCHEDULE = %gin.REQUIRED
 
 # Commonly overridden
 DROPOUT_RATE = 0.1
@@ -71,7 +74,7 @@ MIXTURE_OR_TASK_MODULE = None
 # using Mesh Tensorflow (e.g. the public T5 / mT5 / ByT5 models), this should be
 # set to `pretraining batch_size` * `target_token_length`. For T5 and T5.1.1:
 # `2048 * 114`. For mT5: `1024 * 229`. For ByT5: `1024 * 189`.
-# LOSS_NORMALIZING_FACTOR = 233472
+# LOSS_NORMALIZING_FACTOR = None
 
 train_script.train:
   model = %MODEL  # imported from separate gin file
@@ -153,6 +156,6 @@ trainer.Trainer:
   num_microbatches = None
   learning_rate_fn = @utils.create_learning_rate_scheduler()
 utils.create_learning_rate_scheduler:
-  factors = 'constant'
-  base_learning_rate = 0.001
-  warmup_steps = 1000
+  factors = %LEARNING_RATE_SCHEDULE
+  base_learning_rate = %LEARNING_RATE
+  warmup_steps = %WARMUP_STEPS

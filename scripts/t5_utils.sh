@@ -73,6 +73,15 @@
             -b | --batch_size )             shift
                                             batch_size=$1
                                             ;;
+            --learning_rate )               shift
+                                            learning_rate=$1
+                                            ;;
+            --learning_rate_schedule )      shift
+                                            learning_rate_schedule=$1
+                                            ;;
+            --warmup_steps )                shift
+                                            warmup_steps=$1
+                                            ;;
             -n | --num_microbatches )       shift
                                             num_microbatches=$1
                                             ;;
@@ -115,9 +124,17 @@
     ensure "task" "$task"
     ensure "feature_lengths" "$feature_lengths"
 
-    # if [[ $action == "pretrain" ]]; then
-    #     ensure "checkpoint" "$checkpoint"
-    # fi
+    if [[ $action == "pretrain" ]]; then
+        : "${LEARNING_RATE_SCHEDULE="constant * rsqrt_decay"}"
+        : "${LEARNING_RATE=1.0}"
+        : "${WARMUP_STEPS=10000}"
+    fi
+
+    if [[ $action == "finetune" ]]; then
+        : "${LEARNING_RATE_SCHEDULE="constant"}"
+        : "${LEARNING_RATE=0.001}"
+        : "${WARMUP_STEPS=10000}"
+    fi
 
     if [[ $action == "pretrain" || $action == "finetune" ]]; then
         ensure "train_steps" "$train_steps"
@@ -144,6 +161,10 @@
             --gin_file="config/runs/t5_1_1/pretrain.gin" \
             --gin.MIXTURE_OR_TASK_NAME=\"${task}\" \
             --gin.TASK_FEATURE_LENGTHS="${feature_lengths}" \
+            --gin.TASK_FEATURE_LENGTHS="${feature_lengths}" \
+            --gin.WARMUP_STEPS=${warmup_steps} \
+            --gin.LEARNING_RATE=\"${learning_rate}\" \
+            --gin.LEARNING_RATE_SCHEDULE=\"${learning_rate_schedule}\" \
             --gin.TRAIN_STEPS=${train_steps} \
             --gin.BATCH_SIZE=${batch_size} \
             --gin.trainer.Trainer.num_microbatches=${num_microbatches} \
@@ -160,6 +181,9 @@
             --gin_file="config/runs/t5_1_1/finetune.gin" \
             --gin.MIXTURE_OR_TASK_NAME=\"${task}\" \
             --gin.TASK_FEATURE_LENGTHS="${feature_lengths}" \
+            --gin.WARMUP_STEPS=${warmup_steps} \
+            --gin.LEARNING_RATE=${learning_rate} \
+            --gin.LEARNING_RATE_SCHEDULE=\"${learning_rate_schedule}\" \
             --gin.TRAIN_STEPS=${train_steps} \
             --gin.BATCH_SIZE=${batch_size} \
             --gin.trainer.Trainer.num_microbatches=${num_microbatches} \

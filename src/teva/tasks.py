@@ -29,7 +29,7 @@ from teva.vocab import DEFAULT_VOCAB
 load_dotenv()
 
 BUCKET_DIR=os.getenv("DATA_GCP_BUCKET_DIR", "data/")
-if BUCKET_DIR.endswith("/"):
+if not BUCKET_DIR.endswith("/"):
     BUCKET_DIR += "/"
 
 DEFAULT_TEMPERATURE: Final = 1.0  # TODO: @theyorubayesian @ToluClassics
@@ -446,17 +446,17 @@ def add_afriqa_task():
 # Aya
 # ---
 def add_aya_task():
-    DATASET_PATH = Template(BUCKET_DIR + "aya/${split}/${language}.jsonl")
+    DATASET_PATH = Template(BUCKET_DIR + "aya/${language}/${split}.jsonl")
     AYA_DATASET_LANGUAGES = [
         "afrikaans", "algerian_arabic", "amharic", "egyptian_arabic", "english",
         "french", "hausa", "igbo", "kinyarwanda", "mozambican_portuguese",
         "nyanja", "plateau_malagasy", "portuguese", "shona", "somali", "swahili",
-        "shona", "southern_sotho", "xhosa", "yoruba", "zulu",
+        "southern_sotho", "xhosa", "yoruba", "zulu",
         # "moroccan_arabic", "tunisian_arabic",                 # These are alt arabic forms we could support
         # "bemba", "central_kanuri", "fon", "twi", "wolof"      # These are African languages not in WURA
     ]
 
-    AYA_DATASET_STATISTICS = get_dataset_statistics(BUCKET_DIR + "aya/statistics.jsonl")
+    AYA_DATASET_STATISTICS = get_dataset_statistics(BUCKET_DIR + "aya/statistics.json")
     
     TEXT_SPEC = {
         field: tf.TensorSpec([], tf.string, name=field) 
@@ -482,7 +482,7 @@ def add_aya_task():
                 split_to_filepattern={
                     "train": DATASET_PATH.substitute(split="train", language=language),
                     "validation": DATASET_PATH.substitute(split="validation", language=language),
-                    "test": DATASET_PATH.substiture(split="test", language=language)
+                    "test": DATASET_PATH.substitute(split="test", language=language)
                 },
                 num_input_examples=AYA_DATASET_STATISTICS[language]
             ),

@@ -64,7 +64,7 @@ def jsonline_to_dict(line: str, specs: JsonSpec, return_key: str = None) -> dict
 @map_over_dataset
 def create_news_classification_example(
     example: ClassificationInput,
-    config: Literal["headline", "headline_and_text", "text"] = "text",
+    config: Literal["headline", "headline_and_text", "text"] = "headline_and_text",
     prompt: str = "classify:"
 ) -> TTTExample:
     return {

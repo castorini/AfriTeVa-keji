@@ -28,14 +28,16 @@ def get_labels(labels_file: str) -> List[str]:
         return f.read().splitlines()
 
 
-def get_dataset_statistics(file: str) -> CorpusStatistics:
+def get_dataset_statistics(file: str):
     stats = {}
 
     with tf.io.gfile.GFile(file) as f:
+        content = f.read()
+        
         try:
-            stats = json.load(f)
-        except:
-            for line in f:
+            stats = json.loads(content)
+        except json.JSONDecodeError:
+            for line in content.split("\n"):
                 num_input_examples, language_and_split = line.split()
                 split, file = language_and_split.split("/")
                 language = file.split(".")[0]

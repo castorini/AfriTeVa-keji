@@ -18,7 +18,7 @@ DROPOUT_RATE = %gin.REQUIRED
 
 # Vocabulary (shared by encoder and decoder)
 VOCABULARY = @seqio.SentencePieceVocabulary()
-seqio.SentencePieceVocabulary.sentencepiece_model_file = "gs://afriqa-bucket/tokenizers/v150000/sentencepiece.bpe.model"
+seqio.SentencePieceVocabulary.sentencepiece_model_file = "tokenizers/v150000/sentencepiece.bpe.model"
 
 # ------------------- Optimizer ------------------------------------------------
 # `learning_rate` is set by `Trainer.learning_rate_fn`.

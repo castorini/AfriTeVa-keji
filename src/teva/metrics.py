@@ -16,7 +16,7 @@ def chrf(targets, predictions):
 
 
 def weighted_multiclass_f1(labels, **metric_fn_kwargs):
-    """Computes the unweighted average of the F1 per class."""
+    """Computes the weighted average of the F1 per class."""
     return sklearn_metrics_wrapper(
         "f1_score",
         metric_dict_str="weighted_%dclass_f1" % len(labels),

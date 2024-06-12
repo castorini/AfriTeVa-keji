@@ -5,19 +5,24 @@
 
     export TASKS_TO_LOAD="aya"
 
-    CHECKPOINT="gs://afriqa-bucket/T5_1_1_base/checkpoint_524288"
+    CHECKPOINT="models/T5_1_1_base/checkpoint_524288"
     OUTPUT_DIR=afriteva_v2_base_aya_30k_afrikaans
 
     # Dataset configurations
     FT_NUM_STEPS=30000
-    TRAIN_BATCH_SIZE=16
-    EVAL_BATCH_SIZE=8
-    INFER_BATCH_SIZE=4
-    FEATURE_LENGTHS="{'inputs': 512, 'targets': 200}"
+    TRAIN_BATCH_SIZE=256
+    NUM_MICROBATCHES=4
+    EVAL_BATCH_SIZE=128
+    INFER_BATCH_SIZE=128
+    LEARNING_RATE=0.0003
+    LEARNING_RATE_SCHEDULE="constant"
+    WARMUP_STEPS=3000
+
+    FEATURE_LENGTHS="{'inputs': 1024, 'targets': 1024}"
     CHECKPOINT_PERIOD=5000
     EVAL_PERIOD=5000
 
-    ADDITIONAL_GIN_CONFIGS=("--gin.LOSS_NORMALIZING_FACTOR=AVERAGE_PER_SEQUENCE")
+    ADDITIONAL_GIN_CONFIGS=("--gin.LOSS_NORMALIZING_FACTOR=\"AVERAGE_PER_SEQUENCE\"")
     REMOVE_CHECKPOINTS=false
 
     # --------------------------------
@@ -38,12 +43,15 @@
         do
             seed_output_dir=runs/$OUTPUT_DIR/${task}_${seed}
 
-            # --gin.infer_eval/utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE \
             bash scripts/t5_utils.sh \
             --action finetune \
             --task $task \
             --feature_lengths "$FEATURE_LENGTHS" \
             --batch_size $TRAIN_BATCH_SIZE \
+            --num_microbatches $NUM_MICROBATCHES \
+            --warmup_steps $WARMUP_STEPS \
+            --learning_rate $LEARNING_RATE \
+            --learning_rate_schedule $LEARNING_RATE_SCHEDULE \
             --checkpoint $CHECKPOINT \
             --checkpoint_period $CHECKPOINT_PERIOD \
             --eval_period $EVAL_PERIOD \

@@ -10,3 +10,4 @@ cmake-*/
 .vscode/
 __pycache__/
 env/
+models/
