@@ -3,19 +3,19 @@
 {   
     set -e;
 
-    export CUDA_VISIBLE_DEVICES=2
+    export CUDA_VISIBLE_DEVICES=0
     export WANDB_ENTITY="theyorubayesian"
     export WANDB_PROJECT="scaling-lms-for-african-languages"
     export WANDB_LOG_MODEL=false
     export WANDB_RUN_GROUP="translation/mafand"
 
     declare -A KNOWN_LANGUAGES=(
-        # ["hau"]="en"
-        # ["ibo"]="en"
-        # ["pcm"]="en"
-        # ["swa"]="en"
-        # ["yor"]="en"
-        # ["zul"]="en"
+        ["hau"]="en"
+        ["ibo"]="en"
+        ["pcm"]="en"
+        ["swa"]="en"
+        ["yor"]="en"
+        ["zul"]="en"
         # ["sna"]="en"  # No train dataset
         # ["amh"]="en"  # No train dataset
         # ["kin"]="en"  # No train dataset
@@ -23,15 +23,15 @@
         # ["xho"]="en"  # No train dataset
     )
     declare -A UNKNOWN_LANGUAGES=(
+        ["lug"]="en"
+        ["luo"]="en"
+        ["tsn"]="en"
+        ["twi"]="en"
         ["bam"]="fr"
         ["bbj"]="fr"
         ["ewe"]="fr"
         ["fon"]="fr"
-        ["lug"]="en"
-        ["luo"]="en"
         ["mos"]="fr"
-        ["tsn"]="en"
-        ["twi"]="en"
         ["wol"]="fr"
     )
     declare -A LANGUAGE_MAP=(
@@ -48,16 +48,16 @@
         ["xho"]="Xhosa"
         ["yor"]="Yoruba"
         ["zul"]="Zulu"
-        ["bam"]="fr"
-        ["bbj"]="fr"
-        ["ewe"]="fr"
+        ["bam"]="Bambara"
+        ["bbj"]="Ghomálá'"
+        ["ewe"]="Éwé"
         ["fon"]="Fon"
         ["lug"]="Luganda"
         ["luo"]="Luo"
-        ["mos"]="fr"
-        ["tsn"]="en"
-        ["twi"]="en"
-        ["wol"]="fr"
+        ["mos"]="Mos"
+        ["tsn"]="Setswana"
+        ["twi"]="Twi"
+        ["wol"]="Wolof"
     )
 
     LR=0.00005
@@ -70,11 +70,11 @@
     TARGET_LENGTH=200
     BEAM_SIZE=10
     
-    for language in ${!KNOWN_LANGUAGES[@]}
+    for language in ${!UNKNOWN_LANGUAGES[@]}
     do
         set -x;
 
-        pivot=${KNOWN_LANGUAGES[$language]}
+        pivot=${UNKNOWN_LANGUAGES[$language]}
 
         for config in "$language-$pivot" "$pivot-$language"
         do
@@ -117,8 +117,7 @@
             --report "wandb" >& "runs/translation/afriteva_v2_${MODEL_SIZE}/${source}_${target}-$(date +"%m-%d_%H-%M-%S").log" 
 
             du -a $RUN_DIR | grep checkpoint | cut -f 2 | xargs rm -r
-
-            set +x;
         done
+        set +x;
     done
 }

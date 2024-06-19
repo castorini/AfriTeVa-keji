@@ -6,6 +6,7 @@ import sys
 from typing import Callable
 
 import numpy as np
+import torch
 import transformers
 from datasets import load_dataset
 from transformers import (
@@ -50,6 +51,7 @@ def main(
     training_args: Seq2SeqTrainingArguments
 
     is_multi_config_training = len(data_args.dataset_config_name.split(",")) > 1
+    logger.info("Multi-dataset-configuration training enabled")
     if is_multi_config_training:
         assert dataset_provider is not None
     
@@ -222,10 +224,6 @@ def main(
         training_args.generation_max_length
         if training_args.generation_max_length is not None
         else data_args.val_max_target_length
-    )
-
-    training_args.generation_num_beams = (
-        data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
     )
 
     # Normally, the forward pass of the model returns loss and logits but we need tokens for the our metrics

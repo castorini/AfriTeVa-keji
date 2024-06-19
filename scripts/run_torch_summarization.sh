@@ -18,23 +18,27 @@
     FT_CONFIG=all                               # Finetune on all languages in AfriTeVa V2 pretraining data
     # FT_CONFIG=african_only
     # FT_CONFIG=non_african_only
-    # FT_CONFIG=hausa                             # Finetune on a single language alone
+    # FT_CONFIG=hausa,yoruba                             # Finetune on a single language alone
 
+    # Rouge is non-deterministics
+    # https://github.com/huggingface/evaluate/issues/186
     MODEL_SIZE="base"
 
     BATCH_SIZE=32
     NUM_MICROBATCHES=2
     SAMPLING_FACTOR=0.5
     SOURCE_LENGTH=512
-    TARGET_LENGTH=64
+    TARGET_LENGTH=84
 
     # TODO: Explore FT on HR languages before finetuning on LR
     # NUM_EPOCHS=6-10                       # They used epochs for single language finetuning, 32 batch size, slanted LR schedule Howard & Ruder, 2018. Eval constantly to battle overfitting
     NUM_STEPS=50000                         # 35000
     EVAL_STRATEGY="steps"
     EVAL_STEPS=5000
+    # https://proceedings.neurips.cc/paper_files/paper/2019/file/f1748d6b0fd9d439f71450117eba2725-Paper.pdf
     LABEL_SMOOTHING_FACTOR=0.1
     BEAM_SIZE=4
+    # https://github.com/huggingface/transformers/issues/16930
     LENGTH_PENALTY=0.6
 
     # https://github.com/huggingface/transformers/blob/dcdda5324bcc7a750b5e40e11dd795442204ff27/src/transformers/optimization.py#L457
@@ -75,7 +79,10 @@
 
     mkdir -p $RUN_DIR
 
-    OMP_NUM_THREADS=12 torchrun --nproc_per_node "$N_GPU" --master_port=25678 \
+    export TOKENIZERS_PARALLELISM=false
+
+    # OMP_NUM_THREADS=24 torchrun --nproc_per_node "$N_GPU" --master_port=25678 \
+    accelerate launch --multi_gpu --num_processes="$N_GPU" \
     -m teva.torch.summarization \
     --model_name_or_path "castorini/afriteva_v2_${MODEL_SIZE}" \
     --do_train \
@@ -93,12 +100,13 @@
     --output_dir "$RUN_DIR" \
     --optim adafactor \
     --learning_rate $LR \
-    --dispatch_batches True \
     --lr_scheduler_type="$LR_SCHEDULER_TYPE" \
     --label_smoothing_factor=$LABEL_SMOOTHING_FACTOR \
     --per_device_train_batch_size=$BATCH_SIZE \
     --gradient_accumulation_steps=$NUM_MICROBATCHES \
+    --ddp_find_unused_parameters False \
     --per_device_eval_batch_size=$BATCH_SIZE \
+    --dataloader_num_workers 12 \
     --ignore_pad_token_for_loss \
     --overwrite_output_dir \
     --predict_with_generate \
