@@ -5,42 +5,32 @@
 
     export TASKS_TO_LOAD="aya"
 
-    CHECKPOINT="models/T5_1_1_base/checkpoint_524288"
-    OUTPUT_DIR=afriteva_v2_base_aya_30k_afrikaans
+    CHECKPOINT="models/T5_1_1_large/checkpoint_524288"
+    EXPERIMENT_NAME=afriteva_v2_large_aya_30k_all_african_languages
 
-    # Dataset configurations
+    # Training configurations
+    task="aya"
     FT_NUM_STEPS=30000
     TRAIN_BATCH_SIZE=256
-    NUM_MICROBATCHES=4
-    EVAL_BATCH_SIZE=128
-    INFER_BATCH_SIZE=128
+    NUM_MICROBATCHES=16
+    EVAL_BATCH_SIZE=32
+    INFER_BATCH_SIZE=32
     LEARNING_RATE=0.0003
     LEARNING_RATE_SCHEDULE="constant"
     WARMUP_STEPS=3000
-
-    FEATURE_LENGTHS="{'inputs': 1024, 'targets': 1024}"
     CHECKPOINT_PERIOD=5000
     EVAL_PERIOD=5000
+    FEATURE_LENGTHS="{'inputs': 1024, 'targets': 1024}"
 
     ADDITIONAL_GIN_CONFIGS=("--gin.LOSS_NORMALIZING_FACTOR=\"AVERAGE_PER_SEQUENCE\"")
     REMOVE_CHECKPOINTS=false
 
-    # --------------------------------
-    PRETRAINED_STEPS=${CHECKPOINT##*_}
-    MODEL_SIZE=${CHECKPOINT%%/checkpoint*}
-    MODEL_SIZE=${MODEL_SIZE##*_}
-    mkdir -p {logs/$OUTPUT_DIR,runs/$OUTPUT_DIR}
-    # ---------------------------------------------
-
-    # Solve the following bash task 
-    # TODO: if a variable task is set, print the task
-    # TODO: If a variable LANGUAGES exist, for each language in the list, set task to language and print task 
-
+    # ----------------------
     if [ -z "$TASKS" ]; then
         TASKS=()
 
         if [ -z "$LANGUAGES" ] && [ -z "$task" ]; then
-            echo "Error: All of `TASKS`, `LANGUAGES` and `task` are unset."
+            echo "Error: All of \`TASKS\`, \`LANGUAGES\` and \`task\` are unset."
             exit 1
         fi
     fi
@@ -55,10 +45,18 @@
         TASKS+=("$task")
     fi
 
+    # ------------------------------------
+    PRETRAINED_STEPS=${CHECKPOINT##*_}
+    MODEL_SIZE=${CHECKPOINT%%/checkpoint*}
+    MODEL_SIZE=${MODEL_SIZE##*_}
+    OUTPUT_DIR="runs/$EXPERIMENT_NAME"
+    mkdir -p "$OUTPUT_DIR"
+    # ------------------------------------
+
     for task in "${TASKS[@]}"; do
         train_steps=$((PRETRAINED_STEPS + FT_NUM_STEPS))
 
-        bash scripts/t5_utils.sh \
+        scripts/t5_utils.sh \
         --action finetune \
         --task $task \
         --feature_lengths "$FEATURE_LENGTHS" \
@@ -72,18 +70,19 @@
         --eval_period $EVAL_PERIOD \
         --train_steps $train_steps \
         --model_size $MODEL_SIZE \
-        --output_dir $seed_output_dir \
+        --output_dir $OUTPUT_DIR \
         --gin.infer_eval/utils.DatasetConfig.batch_size=$INFER_BATCH_SIZE \
+        --gin.train_eval/utils.DatasetConfig.batch_size=$EVAL_BATCH_SIZE \
         "${ADDITIONAL_GIN_CONFIGS[@]}" \
-        >& logs/$OUTPUT_DIR/${task}_${seed}_ft.log \
+        >& "$OUTPUT_DIR/${task}_$(date +"%m-%d_%H-%M-%S").log" \
         && finetuned=true
 
-        checkpoints=($(ls $seed_output_dir | grep checkpoint))
+        checkpoints=($(ls $OUTPUT_DIR | grep checkpoint))
 
         if [[ $REMOVE_CHECKPOINTS == "true" ]]; then
             for ckpt in "${checkpoints[@]}";
             do
-                rm -rf "$seed_output_dir/$ckpt"
+                rm -rf "$OUTPUT_DIR/$ckpt"
             done
         fi
     done

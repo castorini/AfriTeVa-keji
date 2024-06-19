@@ -445,16 +445,29 @@ def add_afriqa_task():
 # ---
 # Aya
 # ---
+# TODO: Split aya task into HumanAnnot, Translation Heavy & Template Heavy tasks
+def add_aya_human_task():
+    ...
+
+def add_aya_translation_task():
+    ...
+
+def add_aya_template_task():
+    ...
+
+
 def add_aya_task():
     DATASET_PATH = Template(BUCKET_DIR + "aya/${language}/${split}.jsonl")
     AYA_DATASET_LANGUAGES = [
-        "afrikaans", "algerian_arabic", "amharic", "egyptian_arabic", "english",
-        "french", "hausa", "igbo", "kinyarwanda", "mozambican_portuguese",
-        "nyanja", "plateau_malagasy", "portuguese", "shona", "somali", "swahili",
-        "southern_sotho", "xhosa", "yoruba", "zulu",
-        # "moroccan_arabic", "tunisian_arabic",                 # These are alt arabic forms we could support
-        # "bemba", "central_kanuri", "fon", "twi", "wolof"      # These are African languages not in WURA
+        "afrikaans", "amharic", "egyptian_arabic", "english",
+        "french", "hausa", "igbo", "kinyarwanda", "nyanja",
+        "plateau_malagasy", "portuguese", "shona", "somali",
+        "swahili", "southern_sotho", "xhosa", "yoruba", "zulu"
+        # "algerian_arabic", "moroccan_arabic", "tunisian_arabic",  # These are alt arabic forms we could support
+        # "mozambican_portuguese",                                  # Alt portuguese forms
+        # "bemba", "central_kanuri", "fon", "twi", "wolof"          # These are African languages not in WURA
     ]
+    HAS_TRAIN_SPLIT_ONLY = {"nyanja"}
 
     AYA_DATASET_STATISTICS = get_dataset_statistics(BUCKET_DIR + "aya/statistics.json")
     
@@ -481,8 +494,11 @@ def add_aya_task():
             source=seqio.TextLineDataSource(
                 split_to_filepattern={
                     "train": DATASET_PATH.substitute(split="train", language=language),
-                    "validation": DATASET_PATH.substitute(split="validation", language=language),
-                    "test": DATASET_PATH.substitute(split="test", language=language)
+                    # nyanja has only a train split so skip validation and test filepatterns
+                    **({
+                        "validation": DATASET_PATH.substitute(split="validation", language=language),
+                        "test": DATASET_PATH.substitute(split="test", language=language)
+                    } if language != "nyanja" else {})
                 },
                 num_input_examples=AYA_DATASET_STATISTICS[language]
             ),
