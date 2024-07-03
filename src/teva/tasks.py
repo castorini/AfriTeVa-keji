@@ -1,6 +1,9 @@
+import itertools
 import os
+import re
 from collections import OrderedDict
 from functools import partial
+from pathlib import Path
 from string import Template
 from typing import Final
 from typing import List
@@ -41,6 +44,11 @@ DEFAULT_OUTPUT_FEATURES: Final = {
     "inputs": seqio.Feature(vocabulary=DEFAULT_VOCAB, add_eos=True, required=False),
     "targets": seqio.Feature(vocabulary=DEFAULT_VOCAB, add_eos=True)
 }
+
+pattern = re.compile(r'[^\w\d\.\:_#]')
+
+# Function to normalize a task name
+normalize = lambda name: pattern.sub('_', name)
 
 
 class TaskNotFoundException(Exception):
@@ -446,34 +454,34 @@ def add_afriqa_task():
 # Aya
 # ---
 # TODO: Split aya task into HumanAnnot, Translation Heavy & Template Heavy tasks
-def add_aya_human_task():
-    ...
+AYA_DATASET_LANGUAGES = [
+    "afrikaans", "amharic", "egyptian_arabic", "english",
+    "french", "hausa", "igbo", "kinyarwanda", "nyanja",
+    "plateau_malagasy", "portuguese", "shona", "somali",
+    "swahili", "southern_sotho", "xhosa", "yoruba", "zulu"
+    "algerian_arabic", "moroccan_arabic", "tunisian_arabic",  # These are alt arabic forms we could support
+    "mozambican_portuguese",                                  # Alt portuguese forms
+    "bemba", "central_kanuri", "fon", "twi", "wolof"          # These are African languages not in WURA
+]
 
-def add_aya_translation_task():
-    ...
 
-def add_aya_template_task():
-    ...
+def create_aya_dataset_task(
+    languages: list[str],
+    dataset_name: str,
+    mixture_rate = None
+) -> tuple[seqio.Mixture, list[seqio.Task]]:
+    DATASET_PATH = Template(BUCKET_DIR + "aya/" + dataset_name + "/${split}/${language}.jsonl")
 
-
-def add_aya_task():
-    DATASET_PATH = Template(BUCKET_DIR + "aya/${language}/${split}.jsonl")
-    AYA_DATASET_LANGUAGES = [
-        "afrikaans", "amharic", "egyptian_arabic", "english",
-        "french", "hausa", "igbo", "kinyarwanda", "nyanja",
-        "plateau_malagasy", "portuguese", "shona", "somali",
-        "swahili", "southern_sotho", "xhosa", "yoruba", "zulu"
-        # "algerian_arabic", "moroccan_arabic", "tunisian_arabic",  # These are alt arabic forms we could support
-        # "mozambican_portuguese",                                  # Alt portuguese forms
-        # "bemba", "central_kanuri", "fon", "twi", "wolof"          # These are African languages not in WURA
-    ]
-    HAS_TRAIN_SPLIT_ONLY = {"nyanja"}
-
-    AYA_DATASET_STATISTICS = get_dataset_statistics(BUCKET_DIR + "aya/statistics.json")
+    AYA_DATASET_STATISTICS = get_dataset_statistics(
+        BUCKET_DIR + "aya/statistics.json")[dataset_name]
     
     TEXT_SPEC = {
         field: tf.TensorSpec([], tf.string, name=field) 
-        for field in ['inputs', 'targets', 'dataset_name', 'sub_dataset_name', 'task_type', 'language', 'script', 'split']
+        for field in [
+            'inputs', 'targets', 'dataset_name', 
+            'sub_dataset_name', 'task_type', 'language', 
+            'script', 'split'
+        ]
     }
 
     ID_SPEC = {
@@ -486,21 +494,26 @@ def add_aya_task():
     parse_aya_jsonline = partial(jsonline_to_dict, specs=AYA_SPEC)
 
     aya_tasks = []
-    for language in AYA_DATASET_LANGUAGES:
-        task_name = f"{language}_aya"
+    for language in languages:
+        # TODO: @theyorubayesian - this only works for local files.
+        sources = {
+            split: DATASET_PATH.substitute(split="train", language=language)
+            for split in ["train", "validation", "test"]
+            if Path(DATASET_PATH.substitute(split=split, language=language)).exists()
+        }
+        if not sources:
+            continue
+
+        task_name = normalize(f"{language}_{dataset_name}_aya")
 
         seqio.TaskRegistry.add(
             name=task_name,
             source=seqio.TextLineDataSource(
-                split_to_filepattern={
-                    "train": DATASET_PATH.substitute(split="train", language=language),
-                    # nyanja has only a train split so skip validation and test filepatterns
-                    **({
-                        "validation": DATASET_PATH.substitute(split="validation", language=language),
-                        "test": DATASET_PATH.substitute(split="test", language=language)
-                    } if language != "nyanja" else {})
-                },
-                num_input_examples=AYA_DATASET_STATISTICS[language]
+                split_to_filepattern=sources,
+                num_input_examples={
+                    source: AYA_DATASET_STATISTICS[source][language]
+                    for source in sources
+                }
             ),
             preprocessors=[
                 parse_aya_jsonline,
@@ -514,7 +527,98 @@ def add_aya_task():
 
         aya_tasks.append(task_name)
 
-    seqio.MixtureRegistry.add("aya", aya_tasks, default_rate=DEFAULT_MIX_RATE)
+    if mixture_rate is None:
+        mixture_rate = DEFAULT_MIX_RATE
+
+    mixture = seqio.MixtureRegistry.add(
+        name=f"{dataset_name}_aya", 
+        tasks=aya_tasks,
+        default_rate=mixture_rate
+    )
+    return mixture, aya_tasks
+
+
+def add_aya_human_task() -> tuple[seqio.Mixture, list[seqio.Task]]:
+    LANGUAGES=[
+        "amharic", "egyptian_arabic", "english",
+        "french", "hausa", "igbo", "nyanja",
+        "plateau_malagasy", "portuguese", "shona",
+        "somali", "swahili", "xhosa", "yoruba", "zulu",
+        # African languages not in wura
+        "moroccan_arabic", "wolof"
+    ]
+    
+    _, aya_human_tasks = create_aya_dataset_task(LANGUAGES, "aya-dataset")
+    human_aya = seqio.MixtureRegistry.add(
+        "human_aya", aya_human_tasks, default_rate=DEFAULT_MIX_RATE)
+    return human_aya, aya_human_tasks
+
+
+def add_aya_translated_task() -> tuple[seqio.Mixture, list[seqio.Task]]:
+    TRANSLATED_DATASETS=(
+        "adversarial_qa_(t)","cnn-daily-mail_(t)", "dolly-v2_(t)",
+        "flan-coqa_(t)", "flan-cot-submix_(t)", "flan-gem-wiki-lingua_(t)",
+        "flan-lambada_(t)", "flan-unified-qa_(t)", "hotpotqa_(t)",
+        "joke-explaination-inst_(t)", "mintaka-inst_(t)", "mlqa-en_(t)",
+        "nq-open_(t)", "paws-wiki_(t)", "piqa_(t)", "soda-inst_(t)",
+        "wiki_qa_(t)", "wiki-split-inst_(t)", "xlel_wd-inst_(t)"
+    )
+
+    translated_tasks = []
+    
+    for dataset_name in TRANSLATED_DATASETS:
+        _, dataset_tasks = create_aya_dataset_task(
+            AYA_DATASET_LANGUAGES,
+            dataset_name=dataset_name,
+            mixture_rate=None
+        )
+        translated_tasks.append(dataset_tasks)
+    
+    translated_tasks = list(itertools.chain.from_iterable(translated_tasks))
+    translated_aya = seqio.MixtureRegistry.add(
+        "translated_aya", translated_tasks,
+        default_rate=DEFAULT_MIX_RATE
+    )
+    return translated_aya, translated_tasks
+
+
+def add_aya_template_task():
+    TEMPLATED_DATASETS=[
+        "afriqa-inst", "afrisenti-inst", "amharic_qa",
+        "joke-explaination-inst", "masakhanews-inst",
+        "mintaka-inst", "ntx-llm-inst", "nusax-senti-inst",
+        "scirepeval-biomimicry-inst", "soda-inst", "uner-llm-inst",
+        "wiki-split-inst", "xlel_wd-inst", "xwikis-inst"
+    ]
+
+    templated_tasks = []
+    
+    for dataset_name in TEMPLATED_DATASETS:
+        _, dataset_tasks = create_aya_dataset_task(
+            AYA_DATASET_LANGUAGES,
+            dataset_name=dataset_name,
+            mixture_rate=None
+        )
+        templated_tasks.append(dataset_tasks)
+    
+    templated_tasks = list(itertools.chain.from_iterable(templated_tasks))
+    templated_aya = seqio.MixtureRegistry.add(
+        "templated_aya", templated_tasks,
+        default_rate=DEFAULT_MIX_RATE
+    )
+    return templated_aya, templated_tasks
+
+
+def add_aya_task():
+    _, aya_human_tasks = add_aya_human_task()
+    _, translated_aya_tasks = add_aya_translated_task()
+    _, templated_aya_tasks = add_aya_template_task()
+
+    return seqio.MixtureRegistry.add(
+        "aya", [*aya_human_tasks, *translated_aya_tasks, *templated_aya_tasks],
+        default_rate=DEFAULT_MIX_RATE
+    )
+
 
 # ------
 # MAIN
@@ -527,6 +631,9 @@ task_factory = {
     "xlsum": add_xlsum_task,
     "squad_v2": add_squad_task,
     "afriqa": add_afriqa_task,
+    "aya_human": add_aya_human_task,
+    "aya_template": add_aya_template_task,
+    "aya_translated": add_aya_translated_task,
     "aya": add_aya_task,
 }
 task_factory = OrderedDict(sorted(task_factory.items()))
