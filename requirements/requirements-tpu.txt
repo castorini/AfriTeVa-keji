@@ -1,3 +1,4 @@
 -f https://storage.googleapis.com/jax-releases/libtpu_releases.html
 jax[tpu]
-./t5x[tpu]
+"./t5x[tpu]"
+orbax-checkpoint==0.5.15

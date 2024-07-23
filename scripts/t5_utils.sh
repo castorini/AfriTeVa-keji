@@ -66,6 +66,9 @@
         # Collect any additional gin configs and pass to action command
         [[ $1 == --gin* ]] && other_configs+=($1) && shift && continue
 
+        # Commands that start with --nig. are stripped and passed to the action script directly
+        [[ $1 == --nig.* ]] && suffix=${1#*nig.} && other_configs+=("--${suffix}") && shift && continue
+
         case $1 in
             -a | --action )                 shift
                                             action=$1
@@ -93,7 +96,9 @@
                                             ;;
             --cuda_12 )                     export NCCL_P2P_DISABLE=1
                                             ;;
-            --no_infer_eval )               no_infer_eval=false
+            --no_train_eval )               no_train_eval=true
+                                            ;;
+            --no_infer_eval )               no_infer_eval=true
                                             ;;
             -e | --eval_period )            shift
                                             eval_period=$1
@@ -192,6 +197,7 @@
             --gin.utils.SaveCheckpointConfig.period=${checkpoint_period} \
             --gin.MODEL_DIR=\"${output_dir}\" \
             "${other_configs[@]}" \
+            ${no_train_eval+--gin.train.train_eval_dataset_cfg=None} \
             ${no_infer_eval+--gin.train.infer_eval_dataset_cfg=None} \
             --alsologtostderr 
             ;;
