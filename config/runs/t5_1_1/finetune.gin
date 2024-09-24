@@ -34,7 +34,11 @@ from t5x import partitioning
 from t5x import utils
 from t5x import trainer
 
-import teva.tasks
+from teva import tasks as teva_tasks
+
+## 
+TEVA_TASK = %gin.REQUIRED
+##
 
 # Must be overridden
 MODEL_DIR = %gin.REQUIRED
@@ -155,7 +159,40 @@ utils.SaveCheckpointConfig:
 trainer.Trainer:
   num_microbatches = None
   learning_rate_fn = @utils.create_learning_rate_scheduler()
+
 utils.create_learning_rate_scheduler:
   factors = %LEARNING_RATE_SCHEDULE
   base_learning_rate = %LEARNING_RATE
   warmup_steps = %WARMUP_STEPS
+
+teva_tasks.main:
+  tasks = %TEVA_TASK
+  aya = @teva_tasks.add_aya_task
+
+teva_tasks.add_aya_task:
+  human_mixture_cfg = @human/teva_tasks.MixtureRateConfig()
+  templated_mixture_cfg = @templated/teva_tasks.MixtureRateConfig()
+  translated_mixture_cfg = @translated/teva_tasks.MixtureRateConfig()
+
+human/teva_tasks.MixtureRateConfig:
+  scale = 1.0
+  temperature = 1.0
+  maximum = 1.0
+
+templated/teva_tasks.MixtureRateConfig:
+  scale = 1.0
+  temperature = 1.0
+  maximum = 1.0
+
+translated/teva_tasks.MixtureRateConfig:
+  scale = 1.0
+  temperature = 1.0
+  maximum = 1.0
+
+teva_tasks.add_aya_templated_task:
+  afriqa_inst_mixture_cfg = @afriqa_inst/teva_tasks.MixtureRateConfig()
+
+afriqa_inst/teva_tasks.MixtureRateConfig:
+  scale = 1.0
+  temperature = 1.0
+  maximum = 1.0

@@ -130,15 +130,15 @@
     ensure "feature_lengths" "$feature_lengths"
 
     if [[ $action == "pretrain" ]]; then
-        : "${LEARNING_RATE_SCHEDULE="constant * rsqrt_decay"}"
-        : "${LEARNING_RATE=1.0}"
-        : "${WARMUP_STEPS=10000}"
+        : "${learning_rate_schedule="constant * rsqrt_decay"}"
+        : "${learning_rate=1.0}"
+        : "${warmup_steps=10000}"
     fi
 
     if [[ $action == "finetune" ]]; then
-        : "${LEARNING_RATE_SCHEDULE="constant"}"
-        : "${LEARNING_RATE=0.001}"
-        : "${WARMUP_STEPS=10000}"
+        : "${learning_rate_schedule="constant"}"
+        : "${learning_rate=0.001}"
+        : "${warmup_steps=10000}"
     fi
 
     if [[ $action == "pretrain" || $action == "finetune" ]]; then
