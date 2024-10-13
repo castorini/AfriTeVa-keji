@@ -4,7 +4,7 @@ from collections import OrderedDict
 from dataclasses import asdict, dataclass
 from functools import partial
 from string import Template
-from typing import Final, List, Optional
+from typing import Final, List, Optional, Sequence
 
 import gin
 import seqio
@@ -14,7 +14,9 @@ from t5.data.preprocessors import span_corruption, summarize
 from t5.data.utils import rate_num_examples
 from t5.evaluation.metrics import accuracy, bleu, rouge, squad as squad_metrics
 
+from teva.constants import *
 from teva.metrics import chrf, weighted_multiclass_f1
+from teva.mixture_utils import *
 from teva.preprocessors import (
     afriqa,
     create_news_classification_example, 
@@ -52,56 +54,7 @@ class TaskNotFoundException(Exception):
         self.message = self.message_template.substitute(task=task, tasks=" , ".join(tasks))
 
 
-@gin.register
-@dataclass
-class MixtureRateConfig:
-    scale: float = 1.0
-    temperature: float = 1.0
-    maximum: Optional[float] = None
-
-
-def get_rate(
-    scale: float = 1.0,
-    temperature: float = 1.0,
-    maximum: int | float | None  = None,
-) -> callable:
-    return partial(
-        rate_num_examples,
-        scale=scale,
-        temperature = temperature,
-        maximum=maximum
-    )
-
-# TODO: Should this consider the rate for each task?
-def rate_num_examples_for_mixtures(
-    task: seqio.Mixture,
-    maximum: Optional[int] = None,
-    scale: float = 1.0,
-    temperature: float = 1.0,
-    fallback_to_num_input_examples: bool = True,
-    split: str = "train",
-) -> float:
-    ret = 0
-
-    for t in task.tasks:
-        try:
-            if t.cache_dir or not fallback_to_num_input_examples:
-                ret += t.get_cached_stats(split)["examples"]
-            else:
-                ret += t.num_input_examples(split)
-        except (ValueError, KeyError):
-            # Some tasks may not have a train split
-            continue
-
-    ret *= scale
-    if maximum:
-        if isinstance(maximum, float):
-            maximum *= ret
-        ret = min(ret, maximum)
-    if temperature != 1.0:
-        ret = ret ** (1.0 / temperature)
-    return ret
-
+# TODO: Should this consider the rate for each task? 
 
 def get_mixture_rate(
     num_examples: int,
@@ -121,13 +74,6 @@ def get_mixture_rate(
 def add_pretraining_task():
     STATISTICS_PATH = Template(BUCKET_DIR + "AwarawaV2${corpus}Passages/stats")
     DATASET_PATH = Template(BUCKET_DIR + "AwarawaV2${corpus}Passages/${split}/${language}.txt")
-    PRETRAINING_LANGUAGES: Final = [ 
-        "afr", "amh", "arz", "eng_1p5", 
-        "fra_1p5", "hau", "ibo", "kin", 
-        "mlg", "nya", "orm", "por",
-        "sna", "som", "sot", "swa",
-        "tir", "xho", "yor", "zul"
-    ]
 
     CORPORA: Final = ["wiki", "news"] 
     lm_tasks = []
@@ -187,12 +133,6 @@ def add_masakhanews_task():
     MASAKHANEWS_DATASET_PATH = Template(BUCKET_DIR + "masakhanews/${language}/${split}.jsonl")
     LABELS_PATH = Template(BUCKET_DIR + "masakhanews/${language}/labels.txt")
 
-    MASAKHANEWS_LANGUAGES: Final = [
-        "amh", "eng", "fra", "hau",
-        "ibo", "lin", "lug", "orm", 
-        "pcm", "run", "sna", "som", 
-        "swa", "tir", "xho", "yor"
-    ]
     masakhanews_dataset_statistics = get_dataset_statistics(f"{BUCKET_DIR}masakhanews/stats")
     # TODO: @theyorubayesian
     # This is a conversion from SplitStatistics to CorpusStatistics. Formalize it as a method.
@@ -255,10 +195,7 @@ def add_masakhanews_task():
 # For inference: beam search - size: 5, length penalty: 0.6
 def add_lafand_task():
     LAFAND_DATASET_PATH = Template(BUCKET_DIR + "lafand/${pivot}-${language}/${split}.json")
-    LAFAND_FR_PIVOT_LANGUAGES = []
-    LAFAND_EN_PIVOT_LANGUAGES = [
-        "hau", "pcm", "swa", "ibo", "yor", "zul", "tsn", "twi", # TODO: Include xho, zul
-    ]
+    
     LANGUAGE_CODE_MAP = {
         "hau": "Hausa", "pcm": "Pidgin", "swa": "Swahili", 
         "ibo": "Igbo", "yor": "Yoruba", "zul": "Zulu", 
@@ -352,12 +289,6 @@ def add_lafand_task():
 # Batch size: 256
 def add_xlsum_task():
     XLSUM_DATASET_PATH = Template(BUCKET_DIR + "xlsum/${language}/${split}.json")
-
-    XLSUM_LANGUAGES = [
-        "amharic", "arabic", "english", "french", "hausa",
-        "igbo", "kirundi", "oromo", "pidgin", "portuguese",
-        "somali", "swahili", "tigrinya", "yoruba",
-    ]
     xlsum_dataset_statistics = get_dataset_statistics(f"{BUCKET_DIR}xlsum/stats")
     xlsum_dataset_statistics = {
         language: {
@@ -513,36 +444,8 @@ def add_afriqa_task():
 # ---
 # Aya
 # ---
-AYA_DATASET_LANGUAGES = [
-    "afrikaans", "amharic", "egyptian_arabic", "english",
-    "french", "hausa", "igbo", "kinyarwanda", "nyanja",
-    "plateau_malagasy", "portuguese", "shona", "somali",
-    "swahili", "southern_sotho", "xhosa", "yoruba", "zulu"
-    "algerian_arabic", "moroccan_arabic", "tunisian_arabic",  # These are alt arabic forms we could support
-    "mozambican_portuguese",                                  # Alt portuguese forms
-    "bemba", "central_kanuri", "fon", "twi", "wolof"          # These are African languages not in WURA
-]
-
-AYA_TRANSLATED_DATASETS = (
-    "adversarial_qa_(t)","cnn-daily-mail_(t)", "dolly-v2_(t)",
-    "flan-coqa_(t)", "flan-cot-submix_(t)", "flan-gem-wiki-lingua_(t)",
-    "flan-lambada_(t)", "flan-unified-qa_(t)", "hotpotqa_(t)",
-    "joke-explaination-inst_(t)", "mintaka-inst_(t)", "mlqa-en_(t)",
-    "nq-open_(t)", "paws-wiki_(t)", "piqa_(t)", "soda-inst_(t)",
-    "wiki_qa_(t)", "wiki-split-inst_(t)", "xlel_wd-inst_(t)"
-)
-
-AYA_TEMPLATED_DATASETS=[
-    "afriqa-inst", "afrisenti-inst", "amharic_qa",
-    "joke-explaination-inst", "masakhanews-inst",
-    "mintaka-inst", "ntx-llm-inst", "nusax-senti-inst",
-    "scirepeval-biomimicry-inst", "soda-inst", "uner-llm-inst",
-    "wiki-split-inst", "xlel_wd-inst", "xwikis-inst"
-]
-
 AYA_DATASET_STATISTICS = get_dataset_statistics(
             BUCKET_DIR + "aya/statistics.json")
-
 
 # TODO: @theyorubayesian - improve mixture num_examples by summing over tasks
 def get_aya_rate(
@@ -552,7 +455,6 @@ def get_aya_rate(
     language: Optional[str] = None,
     maximum: int | float | None = None
 ) -> float:
-    
     if task == "human":
         num_examples = sum(AYA_DATASET_STATISTICS["aya-dataset"]["train"].values())
     elif task == "translated":
@@ -583,12 +485,12 @@ def get_aya_rate(
     return get_mixture_rate(num_examples, scale, temperature, maximum)
 
 
-# configurable at language level
+@gin.register
 def create_aya_dataset_mixture(
-    languages: list[str],
+    languages: Sequence[str],
     dataset_name: str,
     suffix: Optional[str] = None,
-    mixture_rate: dict[str, MixtureRateConfig]= rate_num_examples
+    **mixture_rate_cfg_map: MixtureRateConfig
 ) -> Optional[seqio.Mixture]:
     DATASET_PATH = Template(BUCKET_DIR + f"aya/{dataset_name}" + "/${split}/${language}.jsonl")
     prefix = [dataset_name, suffix][bool(suffix)]
@@ -642,45 +544,41 @@ def create_aya_dataset_mixture(
             metric_fns=[]
         )
 
-        aya_tasks.append(task_name)
+        mixture_rate_cfg = mixture_rate_cfg_map.get(
+            f"{normalize(dataset_name)}_mixture_cfg", MixtureRateConfig())
+        mixture_rate = get_rate(**asdict(mixture_rate_cfg))
+
+        aya_tasks.append((task_name, mixture_rate))
     
     # if len(aya_tasks) > 1:
     mixture = seqio.MixtureRegistry.add(
         name=f"{prefix}_aya", 
         tasks=aya_tasks,
-        default_rate=mixture_rate
+        default_rate=rate_num_examples
     )
     return mixture
 
 
 @gin.register
-def add_aya_human_task(languages: Optional[list[str]] = None) -> seqio.Mixture:
-    # Are these languages we're interested in or those that are human
-    LANGUAGES=[
-        "amharic", "egyptian_arabic", "english",
-        "french", "hausa", "igbo", "nyanja",
-        "plateau_malagasy", "portuguese", "shona",
-        "somali", "swahili", "xhosa", "yoruba", "zulu",
-        # African languages not in wura
-        "moroccan_arabic", "wolof"
-    ]
-
-    if languages:
-        assert all(lang in LANGUAGES for lang in languages), "Some languages passed are not in `aya-dataset`"
-        LANGUAGES = languages
+def add_aya_human_task(languages: Sequence[str] = AYA_HUMAN_LANGUAGES) -> seqio.Mixture:
+    assert AYA_HUMAN_LANGUAGES.issuperset(languages)
     
     aya_human_mixture = create_aya_dataset_mixture(
-        LANGUAGES, "aya-dataset", mixture_rate=rate_num_examples, suffix="human")
+        languages, "aya-dataset", mixture_rate=rate_num_examples, suffix="human")
     return aya_human_mixture
 
 
 @gin.register
-def add_aya_translated_task(**mixture_rate_cfg_map) -> seqio.Mixture:
+def add_aya_translated_task(
+    datasets: Sequence[str] = AYA_TEMPLATED_DATASETS,
+    **mixture_rate_cfg_map: MixtureRateConfig
+) -> seqio.Mixture:
+    assert AYA_TEMPLATED_DATASETS.issuperset(datasets)
     sub_mixtures = []
     
-    for dataset_name in AYA_TRANSLATED_DATASETS:
+    for dataset_name in datasets:
         mixture = create_aya_dataset_mixture(
-            AYA_DATASET_LANGUAGES,
+            AYA_LANGUAGES,
             dataset_name=dataset_name,
             mixture_rate=rate_num_examples
         )
@@ -697,14 +595,17 @@ def add_aya_translated_task(**mixture_rate_cfg_map) -> seqio.Mixture:
     return translated_aya
 
 
-# Configurable at task level
 @gin.register
-def add_aya_templated_task(**mixture_rate_cfg_map) -> seqio.Mixture:
+def add_aya_templated_task(
+    datasets: Sequence[str] = AYA_TEMPLATED_DATASETS,
+    **mixture_rate_cfg_map: MixtureRateConfig
+) -> seqio.Mixture:
+    assert AYA_TEMPLATED_DATASETS.issuperset(datasets)
     sub_mixtures = []
     
-    for dataset_name in AYA_TEMPLATED_DATASETS:
+    for dataset_name in datasets:
         mixture = create_aya_dataset_mixture(
-            AYA_DATASET_LANGUAGES,
+            AYA_LANGUAGES,
             dataset_name=dataset_name,
             mixture_rate=rate_num_examples
         )
@@ -721,28 +622,139 @@ def add_aya_templated_task(**mixture_rate_cfg_map) -> seqio.Mixture:
     return templated_aya
 
 
-@gin.register
-def add_aya_task(
-    human_mixture_cfg: MixtureRateConfig = MixtureRateConfig(),
-    translated_mixture_cfg: MixtureRateConfig = MixtureRateConfig(),
-    templated_mixture_cfg: MixtureRateConfig = MixtureRateConfig()
-) -> seqio.Mixture:
-    aya_human_mixture = add_aya_human_task()
-    aya_translated_mixture = add_aya_translated_task()
-    aya_templated_mixture = add_aya_templated_task()
+# @gin.register
+# def add_aya_task(
+#     human_mixture_cfg: MixtureRateConfig = MixtureRateConfig(),
+#     translated_mixture_cfg: MixtureRateConfig = MixtureRateConfig(),
+#     templated_mixture_cfg: MixtureRateConfig = MixtureRateConfig()
+# ) -> seqio.Mixture:
+#     aya_human_mixture = add_aya_human_task()
+#     aya_translated_mixture = add_aya_translated_task()
+#     aya_templated_mixture = add_aya_templated_task()
 
-    # In SeqIO, submixtures must carry float rates not funcs
-    return seqio.MixtureRegistry.add(
-        "aya",
-        [
-            (aya_human_mixture, rate_num_examples_for_mixtures(
-                aya_human_mixture, **asdict(human_mixture_cfg))),
-            (aya_templated_mixture, rate_num_examples_for_mixtures(
-                aya_templated_mixture, **asdict(templated_mixture_cfg))),
-            (aya_translated_mixture, rate_num_examples_for_mixtures(
-                aya_translated_mixture, **asdict(translated_mixture_cfg)))
-        ],
+#     # In SeqIO, submixtures must carry float rates not funcs
+#     return seqio.MixtureRegistry.add(
+#         "aya",
+#         [
+#             (aya_human_mixture, rate_num_examples_for_mixtures(
+#                 aya_human_mixture, **asdict(human_mixture_cfg))),
+#             (aya_templated_mixture, rate_num_examples_for_mixtures(
+#                 aya_templated_mixture, **asdict(templated_mixture_cfg))),
+#             (aya_translated_mixture, rate_num_examples_for_mixtures(
+#                 aya_translated_mixture, **asdict(translated_mixture_cfg)))
+#         ],
+#     )
+
+
+@gin.register
+def add_xp3x_task(
+    languages: Sequence[str] = XP3X_LANGUAGE_CODES,
+    **mixture_rate_cfg_map: MixtureRateConfig
+):
+    assert XP3X_LANGUAGE_CODES.issuperset(languages)
+
+    XP3X_DATASET_PATH = Template(BUCKET_DIR + "xP3x/${language}/*.jsonl")
+    xp3x_dataset_statistics = get_dataset_statistics(f"{BUCKET_DIR}xP3x/stats")
+
+    XP3X_JSONLINE_SPECS = {
+        field: tf.TensorSpec(tf.TensorShape([]), tf.string, name=field)
+        for field in ["inputs", "language", "split", "template", "dataset", "config"]
+    }
+    parse_xp3x_jsonline = partial(jsonline_to_dict, specs=XP3X_JSONLINE_SPECS)
+
+    xP3x_tasks = []
+
+    for language in languages:
+        task_name = f"{language}_xp3x"
+
+        xp3x_source = seqio.TextLineDataSource(
+            split_to_filepattern={
+                "train": XP3X_DATASET_PATH.substitute(language=language)
+            },
+            num_input_examples=xp3x_dataset_statistics[language]
+        )
+
+        seqio.TaskRegistry.add(
+            name=task_name,
+            source=xp3x_source,
+            preprocessors=[
+                parse_xp3x_jsonline,
+                partial(take_subset, keys=["inputs", "targets", "config"]),
+                seqio.preprocessors.tokenize,
+                seqio.preprocessors.append_eos_after_trim
+            ],
+            output_features=DEFAULT_OUTPUT_FEATURES,
+            metric_fns=[]
+        )
+
+        mixture_rate_cfg = mixture_rate_cfg_map.get(
+            f"{language}_mixture_cfg", MixtureRateConfig())
+        mixture_rate = get_rate(**asdict(mixture_rate_cfg))
+
+        xP3x_tasks.append((task_name, mixture_rate))
+
+    mixture = seqio.MixtureRegistry.add(
+        name=f"xP3x",
+        tasks=xP3x_tasks,
+        default_rate=rate_num_examples
     )
+    return mixture
+
+
+@gin.register
+def add_octopack_osst():
+    ...
+
+
+@gin.register
+def add_oig_small_chip2():
+    ...
+
+
+def add_tasksource_instruct():
+    ...
+
+
+def add_niv2_submix_filtered():
+    ...
+
+
+def add_flan2021_submix_filtered():
+    ...
+
+
+def add_cot_submix_filtered():
+    ...
+
+
+def add_dpi_templates():
+    """
+    This is a mixture of the following tasks/mixtures:
+        * Octopack OSST
+        * OpenInstruction Generalist
+        * Filtered Flan Collection (NIV2, COT, FLAN2021)
+        * TaskSource Instruct?
+    """
+
+
+@gin.register
+def add_templated_ift_task():
+    """
+    This is a mixture of the following mixtures:
+        * Aya Templated
+        * xP3x
+        * Data Provenance Initiative
+    """
+
+
+@gin.register
+def add_ift_mixture():
+    """
+    This is a mixture of the following mixtures:
+        * TemplatedIFT
+        * AyaHuman
+        * AyaTranslated
+    """
 
 
 default_task_factory = {
@@ -755,18 +767,23 @@ default_task_factory = {
     "aya_human": add_aya_human_task,
     "aya_templated": add_aya_templated_task,
     "aya_translated": add_aya_translated_task,
-    "aya": add_aya_task,
+    # "aya": add_aya_task,
+    "xp3x": add_xp3x_task
 }
 
 
-def main(
+def setup_tasks(
     tasks: str,
     **configured_task_factory
 ):
+    """
+    `configured_task_factory` provides a way to update the task factory dict with 
+    gin configured versions of the task functions
+    """
     default_task_factory.update(configured_task_factory)
     task_factory = OrderedDict(sorted(default_task_factory.items()))
 
-    if tasks == "all":
+    if tasks == "all":  
         """
         When finetuning AfriTeVa V2, we finetune on SQuAD & zero-shot to AfriQA gold passages
         Here we create two tasks: one with AfriQA included (used for evaluation) 
