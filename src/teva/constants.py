@@ -92,10 +92,11 @@ XP3X_LANGUAGE_CODES: Final = frozenset([
     "amh_Ethi", "aka_Latn", "bam_Latn", "bem_Latn", "ewe_Latn",
     "fon_Latn", "gaz_Latn", "hau_Latn", "ibo_Latn", "kam_Latn", "kik_Latn",
     "kin_Latn", "kmb_Latn", "knc_Arab", "knc_Latn", "kon_Latn", "lin_Latn",
-    "lug_Latn", "luo_Latn", "nso_Latn", "nya_Latn", "pcm_Latn", "plt_Latn",
+    "lug_Latn", "luo_Latn", "nso_Latn", "nya_Latn", "plt_Latn",
     "run_Latn", "sna_Latn", "som_Latn", "sot_Latn", "ssw_Latn", "swh_Latn",
     "tir_Ethi", "tsn_Latn", "tum_Latn", "twi_Latn", "umb_Latn", "wol_Latn",
     "xho_Latn", "yor_Latn", "zul_Latn",
     "aeb_Arab", "arb_Arab", "arb_Latn", "arq_Arab", "ary_Arab", "arz_Arab",
     "eng_Latn", "fra_Latn", "por_Latn"
+    # "pcm_Latn", 
 ])

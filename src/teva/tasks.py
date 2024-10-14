@@ -46,6 +46,7 @@ DEFAULT_OUTPUT_FEATURES: Final = {
     "targets": seqio.Feature(vocabulary=DEFAULT_VOCAB, add_eos=True)
 }
 
+
 @gin.constants_from_enum
 @enum.unique
 class TevaTasks(enum.Enum):
@@ -53,7 +54,9 @@ class TevaTasks(enum.Enum):
     IFT = "instruction_finetuning"
     SFT = "supervised_finetuning"
     EVAL = "eval"
+    # ----
     # EVAL
+    # ----
     MASAKHANEWS = "masakhanews"
     LAFAND = "lafand"
     XLSUM = "xlsum"
@@ -62,7 +65,9 @@ class TevaTasks(enum.Enum):
     # NAIJARC = "naijarc"
     # BELEBELE = "belebele"
     # SIB = "sib"
+    # ---
     # IFT
+    # ---
     HUMAN_AYA = "aya-dataset"
     TRANSLATED_AYA = "translated_aya"
     TEMPLATED_AYA = "templated_aya"
@@ -107,6 +112,7 @@ class TevaTasks(enum.Enum):
         return frozenset([
             cls.TASKSOURCE_INSTRUCT,
             cls.OIG_SMALL_CHIP2,
+            cls.OCTOPACK_OSST,
             *cls.get_flan_collection_tasks()
         ])
     
@@ -669,7 +675,7 @@ def add_aya_collection_task(
         ],
     )
 
-
+# TODO: @theyorubayesian- pcm_Latn isn't included when downloading xP3x. Fix. 
 @gin.register
 def add_xp3x_task(
     languages: Sequence[str] = XP3X_LANGUAGE_CODES,
@@ -678,7 +684,7 @@ def add_xp3x_task(
     assert XP3X_LANGUAGE_CODES.issuperset(languages)
 
     XP3X_DATASET_PATH = Template(os.path.join(DATA_DIR, "xP3x/${language}/*.jsonl"))
-    xp3x_dataset_statistics = get_dataset_statistics(os.path.join(DATA_DIR, "xP3x/stats"))
+    xp3x_dataset_statistics = get_dataset_statistics(os.path.join(DATA_DIR, "xP3x/statistics.json"))
 
     XP3X_JSONLINE_SPECS = {
         field: tf.TensorSpec(tf.TensorShape([]), tf.string, name=field)
@@ -695,7 +701,7 @@ def add_xp3x_task(
             split_to_filepattern={
                 "train": XP3X_DATASET_PATH.substitute(language=language)
             },
-            num_input_examples=xp3x_dataset_statistics[language]
+            num_input_examples={"train" : xp3x_dataset_statistics[language]}
         )
         
         if mix_exists(task_name):
@@ -963,4 +969,4 @@ def setup_tasks(
         if len(selected_ift_tasks) > 1:
             seqio.MixtureRegistry.add("teva_ift", selected_ift_tasks, default_rate=1.0)
 
-    print(f"Registered tasks: \n\n{seqio.MixtureRegistry.names()}")
+    print(f"Registered Teva tasks: \n\n{list(seqio.MixtureRegistry.names())}")
