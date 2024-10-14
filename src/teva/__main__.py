@@ -1,3 +1,4 @@
+import enum
 from typing import Sequence
 
 import gin
@@ -7,9 +8,36 @@ import tensorflow as tf
 from absl import app, flags, logging
 from t5x import config_utils, gin_utils
 
+from .tasks import TevaTasks
+
+
+@enum.unique
+class RunMode(enum.Enum):
+    TRAIN = "train"
+
 
 if __name__ == "__main__":
     FLAGS = flags.FLAGS
+
+    flags.DEFINE_enum_class(
+        "run_mode",
+        default=None,
+        required=True,
+        enum_class=RunMode,
+        help='The mode to run teva under',
+    )
+
+    flags.DEFINE_multi_enum_class(
+        "tasks_to_load",
+        default=None,
+        required=True,
+        enum_class=TevaTasks,
+        help="One or more tasks to load for the run"
+    )
+
+    # End of Teva flags
+    # -----------------------
+    # T5X flags
 
     flags.DEFINE_multi_string(
         'gin_file',
@@ -27,7 +55,7 @@ if __name__ == "__main__":
 
     flags.DEFINE_list(
         'gin_search_paths',
-        default=['.'],
+        default=['./t5x'],
         help=(
             'Comma-separated list of gin config path prefixes to be prepended '
             'to suffixes given via `--gin_file`. If a file appears in. Only the '
@@ -128,22 +156,24 @@ if __name__ == "__main__":
         # -----
         # TODO: Support all the same commands as t5x: train, eval, infer, precompile
         # -----
-        from teva.tasks import main as setup_tasks
-        from t5x.train import train, _DEFAULT_GIN_SEARCH_PATHS
+        if FLAGS.run_mode == RunMode.TRAIN:
+            from teva.tasks import setup_tasks
+            from t5x.train import train, _DEFAULT_GIN_SEARCH_PATHS
 
-        setup_tasks_using_gin = gin.configurable(setup_tasks)
-        train_using_gin = gin.configurable(train)
+            setup_tasks_using_gin = gin.configurable(setup_tasks)
+            train_using_gin = gin.configurable(train)
 
-        gin_utils.parse_gin_flags(
-            # User-provided gin paths take precedence if relative paths conflict.
-            FLAGS.gin_search_paths + _DEFAULT_GIN_SEARCH_PATHS,
-            FLAGS.gin_file,
-            FLAGS.gin_bindings,
-        )
+            gin_utils.parse_gin_flags(
+                # User-provided gin paths take precedence if relative paths conflict.
+                FLAGS.gin_search_paths + _DEFAULT_GIN_SEARCH_PATHS,
+                FLAGS.gin_file,
+                FLAGS.gin_bindings,
+            )
 
-        setup_tasks_using_gin()
-        step, state = train_using_gin()
-        # TODO: @theyorubayesian: Store state using alternative methods if necessary.
+            setup_tasks_using_gin(tasks=FLAGS.tasks_to_load)
+
+            # TODO: @theyorubayesian: Store state using alternative methods if necessary.
+            step, state = train_using_gin()
 
         jax.effects_barrier()
     

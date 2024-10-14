@@ -6,6 +6,8 @@ import gin
 import seqio
 from t5.data.utils import rate_num_examples
 
+from .constants import *
+
 
 @gin.register
 @dataclass
@@ -37,7 +39,7 @@ def rate_num_examples_for_mixtures(
     split: str = "train",
 ) -> float:
     ret = 0
-    
+
     for t in task.tasks:
         try:
             if t.cache_dir or not fallback_to_num_input_examples:
