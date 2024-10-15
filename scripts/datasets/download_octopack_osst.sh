@@ -1,32 +1,17 @@
 #!/bin/bash
-
-convert_parquet_to_jsonl() {
-    parquet_file=$1
-    json_file="${parquet_file/parquet/json}"
-
-    if [ -f "$json_file" ]; then
-        echo "JSON file already exists"
-        return 0
-    fi
-
-    conversion_code="
-import pyarrow.parquet as pq
-parquet_file = pq.ParquetFile('$parquet_file')
-
-for batch in parquet_file.iter_batches():
-    batch.to_pandas().to_json(
-        '$json_file', orient='records', lines=True, force_ascii=False, mode='a')
-"
-
-    python -c "$conversion_code" && \
-    echo "Conversion completed: $json_file"
-}
+source scripts/datasets/utils.sh
 
 download_octopack_osst(){
-    DOWNLOAD_DIR="/projects/AfriTeVa-keji/data/open-assistant"
+    set -e;
     local DOWNLOAD_DIR="$1"
     mkdir -p "$DOWNLOAD_DIR"
-    wget -P "$DOWNLOAD_DIR"  https://huggingface.co/datasets/bigcode/oasst-octopack/resolve/main/oasst_octopack.jsonl
+    wget -P "$DOWNLOAD_DIR" https://huggingface.co/datasets/bigcode/oasst-octopack/resolve/main/oasst_octopack.jsonl
+
+    for lang in "en" "fr" "pt-BR"; do
+        jq -c "select(.lang | IN(\"${lang}\"))" "$DOWNLOAD_DIR/oasst_octopack.jsonl" > "$DOWNLOAD_DIR/oasst_octopack_${lang}.jsonl"
+    done
+    
+    rm "$DOWNLOAD_DIR/oasst_octopack.jsonl"
 }
 
 download_oig_small_chip2(){
@@ -43,7 +28,7 @@ download_oig_small_chip2(){
 download_tasksource_instruct(){
     local DOWNLOAD_DIR="$1"
     mkdir -p "$DOWNLOAD_DIR"
-    # git clone https://huggingface.co/datasets/tasksource/tasksource-instruct-v0 $DOWNLOAD_DIR-temp && \
+    git clone https://huggingface.co/datasets/tasksource/tasksource-instruct-v0 $DOWNLOAD_DIR-temp && \
         cd $DOWNLOAD_DIR-temp && git lfs pull && cd .. && \
         mv "$DOWNLOAD_DIR"-temp/data/* "$DOWNLOAD_DIR" &&
         rm -rf $DOWNLOAD_DIR-temp
