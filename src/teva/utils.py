@@ -39,8 +39,9 @@ class TaskNotFoundException(Exception):
         self.message = self.message_template.substitute(task=task, tasks=" , ".join(tasks))
 
 
-def mix_exists(mix_name: str) -> bool:
-    return mix_name in seqio.MixtureRegistry.names()
+def task_or_mix_exists(mix_name: str) -> bool:
+    return mix_name in seqio.MixtureRegistry.names() \
+        or mix_name in seqio.TaskRegistry.names()
 
 
 def get_labels(labels_file: str) -> List[str]:

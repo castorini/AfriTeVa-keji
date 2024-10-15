@@ -9,6 +9,7 @@ from typing import Final, Literal, Optional, Sequence
 import gin
 import seqio
 import tensorflow as tf
+from absl import logging
 from dotenv import load_dotenv
 from t5.data.preprocessors import span_corruption, summarize
 from t5.data.utils import rate_num_examples
@@ -31,7 +32,7 @@ from teva.utils import (
     get_dataset_statistics,
     get_labels,
     get_language_from_code,
-    mix_exists,
+    task_or_mix_exists,
     normalize,
     TaskNotFoundException,
 )
@@ -108,24 +109,26 @@ class TevaTasks(enum.Enum):
         ])
     
     @classmethod
-    def get_dpi_templated_tasks(cls) -> frozenset["TevaTasks"]:
-        return frozenset([
-            cls.TASKSOURCE_INSTRUCT,
-            cls.OIG_SMALL_CHIP2,
-            cls.OCTOPACK_OSST,
-            *cls.get_flan_collection_tasks()
-        ])
+    def get_dpi_templated_tasks(cls, flatten_flan_collection: bool = False) -> frozenset["TevaTasks"]:
+        tasks = [cls.TASKSOURCE_INSTRUCT, cls.OIG_SMALL_CHIP2, cls.OCTOPACK_OSST]
+
+        if flatten_flan_collection:
+            tasks += cls.get_flan_collection_tasks()
+        else:
+            tasks.append(cls.FLAN_COLLECTION)
+        
+        return frozenset(tasks)
     
     @classmethod
     def get_aya_collection_tasks(cls) -> frozenset["TevaTasks"]:
         return frozenset([cls.HUMAN_AYA, cls.TEMPLATED_AYA, cls.TRANSLATED_AYA])
     
     @classmethod
-    def get_templated_instruction_tasks(cls, flatten_dpi: bool = False) -> frozenset["TevaTasks"]:
+    def get_templated_instruction_tasks(cls, flatten_mixtures: bool = False) -> frozenset["TevaTasks"]:
         tasks = [cls.XP3X, cls.TEMPLATED_AYA]
         
-        if flatten_dpi:
-            tasks += cls.get_dpi_templated_tasks()
+        if flatten_mixtures:
+            tasks += cls.get_dpi_templated_tasks(flatten_flan_collection=True)
         else:
             tasks.append(cls.DPI_TEMPLATED)
 
@@ -133,7 +136,7 @@ class TevaTasks(enum.Enum):
     
     @classmethod
     def get_instruction_tasks(cls) -> frozenset["TevaTasks"]:
-        return cls.get_templated_instruction_tasks(flatten_dpi=True) | cls.get_aya_collection_tasks()
+        return cls.get_templated_instruction_tasks(flatten_mixtures=True) | cls.get_aya_collection_tasks()
 
 
 def add_wura_task():
@@ -346,7 +349,10 @@ def add_lafand_task():
 # -------------------
 # For inference: beam search - size: 4, length penalty: 0.6
 # Batch size: 256
-def add_xlsum_task():
+def add_xlsum_task(**mixture_rate_cfg_map: MixtureRateConfig) -> seqio.Mixture:
+    if task_or_mix_exists("xlsum"):
+        return seqio.MixtureRegistry.get("xlsum")
+
     XLSUM_DATASET_PATH = Template(os.path.join(DATA_DIR, "xlsum/${language}/${split}.json"))
     xlsum_dataset_statistics = get_dataset_statistics(os.path.join(DATA_DIR, "xlsum/stats"))
     
@@ -367,6 +373,10 @@ def add_xlsum_task():
 
     for language in XLSUM_LANGUAGES:
         xlsum_task_name = f"{language}_xlsum"
+
+        if task_or_mix_exists(xlsum_task_name):
+            xlsum_tasks.append(xlsum_task_name)
+            continue
 
         seqio.TaskRegistry.add(
             xlsum_task_name,
@@ -398,7 +408,8 @@ def add_xlsum_task():
         )
         xlsum_tasks.append(xlsum_task_name)
 
-    seqio.MixtureRegistry.add("xlsum", xlsum_tasks, default_rate=rate_num_examples)
+    mixture = seqio.MixtureRegistry.add("xlsum", xlsum_tasks, default_rate=rate_num_examples)
+    return mixture
 
 # -------
 # SQuADV2
@@ -516,6 +527,9 @@ def create_aya_dataset_mixture(
     suffix: Optional[str] = None,
     **mixture_rate_cfg_map: MixtureRateConfig
 ) -> Optional[seqio.Mixture]:
+    if task_or_mix_exists(f"{prefix}_aya"):
+        return seqio.MixtureRegistry.get(f"{prefix}_aya")
+
     DATASET_PATH = Template(os.path.join(DATA_DIR, f"aya/{dataset_name}", "${split}/${language}.jsonl"))
     prefix = [dataset_name, suffix][bool(suffix)]
 
@@ -551,7 +565,7 @@ def create_aya_dataset_mixture(
 
         task_name = normalize(f"{language}_{prefix}_aya")
 
-        if not mix_exists(task_name):
+        if not task_or_mix_exists(task_name):
             seqio.TaskRegistry.add(
                 name=task_name,
                 source=seqio.TextLineDataSource(
@@ -578,15 +592,12 @@ def create_aya_dataset_mixture(
         aya_tasks.append((task_name, mixture_rate))
     
     # if len(aya_tasks) > 1:
-    if not mix_exists(f"{prefix}_aya"):
-        mixture = seqio.MixtureRegistry.add(
-            name=f"{prefix}_aya", 
-            tasks=aya_tasks,
-            default_rate=rate_num_examples
-        )
-    else:
-        mixture = seqio.MixtureRegistry.get(f"{prefix}_aya")
-    
+    mixture = seqio.MixtureRegistry.add(
+        name=f"{prefix}_aya", 
+        tasks=aya_tasks,
+        default_rate=rate_num_examples
+    )
+
     return mixture
 
 
@@ -658,6 +669,7 @@ def add_aya_collection_task(
     translated_mixture_cfg: MixtureRateConfig = MixtureRateConfig(),
     templated_mixture_cfg: MixtureRateConfig = MixtureRateConfig()
 ) -> seqio.Mixture:
+    
     aya_human_mixture = add_aya_human_task()
     aya_translated_mixture = add_aya_translated_task()
     aya_templated_mixture = add_aya_templated_task()
@@ -680,7 +692,10 @@ def add_aya_collection_task(
 def add_xp3x_task(
     languages: Sequence[str] = XP3X_LANGUAGE_CODES,
     **mixture_rate_cfg_map: MixtureRateConfig
-):
+) -> seqio.Mixture:
+    if task_or_mix_exists("xP3x"):
+        return seqio.MixtureRegistry.get("xP3x")
+    
     assert XP3X_LANGUAGE_CODES.issuperset(languages)
 
     XP3X_DATASET_PATH = Template(os.path.join(DATA_DIR, "xP3x/${language}/*.jsonl"))
@@ -695,7 +710,10 @@ def add_xp3x_task(
     xP3x_tasks = []
 
     for language in languages:
-        task_name = f"{language}_xp3x"
+        task_name = f"{language}_xP3x"
+
+        if task_or_mix_exists(task_name):
+            continue
 
         xp3x_source = seqio.TextLineDataSource(
             split_to_filepattern={
@@ -703,9 +721,6 @@ def add_xp3x_task(
             },
             num_input_examples={"train" : xp3x_dataset_statistics[language]}
         )
-        
-        if mix_exists(task_name):
-            continue
 
         seqio.TaskRegistry.add(
             name=task_name,
@@ -726,38 +741,35 @@ def add_xp3x_task(
 
         xP3x_tasks.append((task_name, mixture_rate))
     
-    if mix_exists("xP3x"):
-        mixture = seqio.MixtureRegistry.get("xP3x")
-    else:
-        mixture = seqio.MixtureRegistry.add(
-            name="xP3x",
-            tasks=xP3x_tasks,
-            default_rate=rate_num_examples
-        )
+    mixture = seqio.MixtureRegistry.add(
+        name="xP3x",
+        tasks=xP3x_tasks,
+        default_rate=rate_num_examples
+    )
     return mixture
 
 
 @gin.register
 def add_octopack_osst():
-    ...
+    if task_or_mix_exists("octopack_osst"):
+        return seqio.TaskRegistry.get("octopack_osst")
 
 
-def add_oig_small_chip2():
-    # TODO: @theyorubayesian - Confirm dataset path
-    if mix_exists("oig-small-chip2"):
-        return
+def add_oig_small_chip2() -> seqio.Task:
+    if task_or_mix_exists("oig_small_chip2"):
+        return seqio.TaskRegistry.get("oig_small_chip2")
     
     OIG_DATASET_PATH = os.path.join(DATA_DIR, "OIG-small-chip2/train*.jsonl")
-    oig_dataset_statistics = get_dataset_statistics(os.path.join(DATA_DIR, "OIG-small-chip2/stats"))
-
+    oig_dataset_statistics = get_dataset_statistics(os.path.join(DATA_DIR, "OIG-small-chip2/statistics.json"))
+    
     OIG_JSONLINE_SPECS = {
         field: tf.TensorSpec(tf.TensorShape([]), tf.string, name=field)
         for field in ["user", "chip2"]
     }
     parse_oig_jsonline = partial(jsonline_to_dict, specs=OIG_JSONLINE_SPECS)
 
-    seqio.TaskRegistry.add(
-        "oig-small-chip2",
+    task = seqio.TaskRegistry.add(
+        "oig_small_chip2",
         source=seqio.TextLineDataSource(
             split_to_filepattern={
                 "train": OIG_DATASET_PATH
@@ -776,10 +788,11 @@ def add_oig_small_chip2():
         output_features=DEFAULT_OUTPUT_FEATURES,
         metric_fns=[]
     )
+    return task
 
 
 def add_tasksource_instruct():
-    # if mix_exists(f"{dataset_name.value}_submix"):
+    # if task_or_mix_exists(f"{dataset_name.value}_submix"):
         # return
     ...
 
@@ -788,7 +801,7 @@ def create_flan_collection_submix_task(
     dataset_name: FlanTask,
     flan_collection_statistics: FlanCollectionStatistics | None = None
 ) -> seqio.Mixture:
-    if mix_exists(f"{dataset_name.value}_submix"):
+    if task_or_mix_exists(f"{dataset_name.value}_submix"):
         return seqio.MixtureRegistry.get(f"{dataset_name.value}_submix")
     
     FLAN_COLLECTION_DATASET_PATH = os.path.join(DATA_DIR, f"flan_collection/{dataset_name.value}/train*.jsonl")
@@ -857,6 +870,33 @@ def add_dialog_submix(flan_collection_statistics: FlanCollectionStatistics | Non
     )
 
 
+def add_flan_collection_task(**mixture_rate_cfg_map: MixtureRateConfig) -> seqio.Mixture:
+    """
+    This is a mixture of the following Flan tasks:
+        * COT Submix
+        * Dialog Submix
+        * Flan 2021 Submix
+        * NIV2 Submix
+        * T0 Submix
+    """
+    if task_or_mix_exists("flan_collection"):
+        return seqio.MixtureRegistry.get("flan_collection")
+    
+    flan_tasks = []
+
+    for task in TevaTasks.get_flan_collection_tasks():
+        task_name = default_task_factory[task]().name
+        mixture_rate_cfg = mixture_rate_cfg_map.get(
+            f"{task_name}_mixture_cfg", MixtureRateConfig())
+        flan_tasks.append((task_name, get_rate(**asdict(mixture_rate_cfg))))
+    
+    mixture = seqio.MixtureRegistry.add(
+        "flan_collection",
+        tasks=flan_tasks
+    )
+    return mixture
+
+
 def add_dpi_templated_tasks(**mixture_rate_cfg_map: MixtureRateConfig):
     """
     This is a mixture of the following tasks/mixtures:
@@ -867,8 +907,10 @@ def add_dpi_templated_tasks(**mixture_rate_cfg_map: MixtureRateConfig):
     """
     sub_mixtures = []
 
-    for task in TevaTasks.get_dpi_templated_tasks():
-        task_func = default_task_factory[task]
+    for task in TevaTasks.get_dpi_templated_tasks(flatten_flan_collection=False):
+        task_name = default_task_factory[task]().name
+        sub_mixtures.append(task_name)
+    
 
 
 @gin.register
@@ -916,6 +958,7 @@ default_task_factory: dict[TevaTasks, callable] = {
     TevaTasks.FLAN_DIALOG_SUBMIX: add_dialog_submix,
     TevaTasks.FLAN_NIV2_SUBMIX: add_niv2_submix_filtered,
     TevaTasks.FLAN_T0_SUBMIX: add_t0_submix,
+    TevaTasks.FLAN_COLLECTION: add_flan_collection_task,
     TevaTasks.OIG_SMALL_CHIP2: add_oig_small_chip2,
     TevaTasks.OCTOPACK_OSST: add_octopack_osst,
     TevaTasks.DPI_TEMPLATED: add_dpi_templated_tasks,
@@ -950,23 +993,30 @@ def setup_tasks(
         all_sft_tasks = TevaTasks.get_supervised_ft_tasks()
 
         for task in tasks:
-            factory[task]()
+            try:
+                task_name = factory[task]().name
+            except KeyError as e:
+                raise TaskNotFoundException from e
 
             if task in all_eval_tasks:
-                selected_eval_tasks.append(task)
+                selected_eval_tasks.append(task_name)
             elif task in all_ift_tasks:
-                selected_ift_tasks.append(task)
+                selected_ift_tasks.append(task_name)
 
             if task in all_sft_tasks:
-                selected_sft_tasks.append(task)
+                selected_sft_tasks.append(task_name)
         
         if len(selected_sft_tasks) > 1:
             seqio.MixtureRegistry.add("teva_sft", selected_sft_tasks, default_rate=1.0)
+            logging.info(f"Created `teva_sft` mixture with mixtures/tasks: {selected_sft_tasks}")
         
         if len(selected_eval_tasks) > 1:
             seqio.MixtureRegistry.add("teva_evaluation", selected_eval_tasks, default_rate=1.0)
+            logging.info(f"Created `teva_eval` mixture with mixtures/tasks: {selected_sft_tasks}")
 
         if len(selected_ift_tasks) > 1:
             seqio.MixtureRegistry.add("teva_ift", selected_ift_tasks, default_rate=1.0)
+            logging.info(f"Created `teva_ift` mixture with mixtures/tasks: {selected_ift_tasks}")
 
-    print(f"Registered Teva tasks: \n\n{list(seqio.MixtureRegistry.names())}")
+    logging.info(f"Registed Teva tasks: \n\n{list(seqio.TaskRegistry.names())}\n")
+    logging.info(f"Registered Teva mixtures: \n\n{list(seqio.MixtureRegistry.names())}")

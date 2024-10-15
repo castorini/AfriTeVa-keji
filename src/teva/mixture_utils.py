@@ -6,8 +6,6 @@ import gin
 import seqio
 from t5.data.utils import rate_num_examples
 
-from .constants import *
-
 
 @gin.register
 @dataclass
